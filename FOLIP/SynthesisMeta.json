@@ -1,0 +1,11 @@
+{
+  "Nickname": "FOLIP",
+  "Visibility": "Visible",
+  "OneLineDescription": "Controls some LOD related tasks for FOLIP.",
+  "LongDescription": "Controls some LOD related tasks for Far Object LOD Improvement Project.",
+  "PreferredAutoVersioning": "Default",
+  "RequiredMods": [],
+  "TargetedReleases": [
+    "Fallout4"
+  ]
+}
