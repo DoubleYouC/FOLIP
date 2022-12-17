@@ -24,20 +24,50 @@ namespace FOLIP
         {
             Console.WriteLine("FOLIP START");
 
-            List<string> lodMaterialFiles = new List<string>();
+            //Gather Assets
+            Console.WriteLine("Identifying LOD assets...");
+
+            List<string> lodMaterialFiles = new();
+            List<string> lod4Meshes = new();
+            List<string> lod8Meshes = new();
+            List<string> lod16Meshes = new();
+            List<string> lod32Meshes = new();
+            List<string> lodMeshes = new();
 
             string[] lodMaterialFileLocations = { $"{state.DataFolderPath}\\materials\\lod", $"{state.DataFolderPath}\\materials\\dlc03\\lod", $"{state.DataFolderPath}\\materials\\dlc04\\lod" };
-            string[] patternReplaceList = { "", "dlc03\\", "dlc04\\" };
+            string[] lodMeshesFileLocations = { $"{state.DataFolderPath}\\meshes\\lod", $"{state.DataFolderPath}\\meshes\\dlc03\\lod", $"{state.DataFolderPath}\\meshes\\dlc04\\lod" };
+            string[] patternReplaceListMaterials = { "", "dlc03\\", "dlc04\\" };
+            string[] patternReplaceListMeshes = { "lod\\", "dlc03\\lod\\", "dlc04\\lod\\" };
 
-            lodMaterialFiles = GameAssets.Files(lodMaterialFileLocations, "*.bgsm", patternReplaceList);
+            lodMaterialFiles = GameAssets.Files(lodMaterialFileLocations, "*.bgsm", patternReplaceListMaterials);
 
-            List<string> missingMaterials = new List<string>();
+            lod4Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_0.nif", patternReplaceListMeshes);
+            lod8Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_1.nif", patternReplaceListMeshes);
+            lod16Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_2.nif", patternReplaceListMeshes);
+            lod32Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_3.nif", patternReplaceListMeshes);
+            lodMeshes = GameAssets.Files(lodMeshesFileLocations, "*lod.nif", patternReplaceListMeshes);
+
+            //Handle Material Swaps
+            Console.WriteLine("Adding LOD material swaps...");
+
+            List<string> missingMaterials = new();
 
             foreach (var materialSwap in state.LoadOrder.PriorityOrder.MaterialSwap().WinningOverrides())
             {
-                List<string> lodSubstitutionsOriginal = new List<string>();
-                List<string> lodSubstitutionsReplacement = new List<string>();
+                List<string> lodSubstitutionsOriginal = new();
+                List<string> lodSubstitutionsReplacement = new();
+                List<string> existingSubstitutions = new();
                 int n = -1;
+
+                //make a list of existing substitutions, which we will need to then check to make sure we don't add duplicate substitutions
+                foreach (var substitution in materialSwap.Substitutions)
+                {
+                    var existingOriginalSubstitution = substitution.OriginalMaterial;
+                    if (existingOriginalSubstitution is null) continue;
+                    existingOriginalSubstitution = existingOriginalSubstitution.ToLower();
+                    existingSubstitutions.Add(existingOriginalSubstitution);
+                }
+
                 foreach (var substitution in materialSwap.Substitutions)
                 {
                     var theOriginalMaterial = substitution.OriginalMaterial;
@@ -66,34 +96,24 @@ namespace FOLIP
                         if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {materialSwap.FormKey} has a Color Remapping Index of {substitution.ColorRemappingIndex}. Please manually check this material swap for proper handling.");
                         continue;
                     }
-                    //If the original material and replacement material both have direct lod materials, add them to the lists.
-                    n += 1;
 
-                    switch (theOriginalMaterial.Substring(0, 6))
+                    theOriginalMaterial = theOriginalMaterial.Split(Path.DirectorySeparatorChar)[0] switch
                     {
-                        case "dlc04\\":
-                            theOriginalMaterial = theOriginalMaterial.Replace("dlc04\\", "DLC04\\LOD\\");
-                            break;
-                        case "dlc03\\":
-                            theOriginalMaterial = theOriginalMaterial.Replace("dlc03\\", "DLC03\\LOD\\");
-                            break;
-                        default:
-                            theOriginalMaterial = $"LOD\\{theOriginalMaterial}";
-                            break;
-                    }
+                        "dlc04" => theOriginalMaterial.Replace("dlc04\\", "DLC04\\LOD\\"),
+                        "dlc03" => theOriginalMaterial.Replace("dlc03\\", "DLC03\\LOD\\"),
+                        _ => $"LOD\\{theOriginalMaterial}",
+                    };
+                    if (existingSubstitutions.Contains(theOriginalMaterial.ToLower())) continue;
+
+                    //If the original material and replacement material both have direct lod materials, add them to the lists, but only if an existing material swap doesn't already exist.
+                    n += 1;
                     lodSubstitutionsOriginal.Add(theOriginalMaterial);
-                    switch (theReplacementMaterial.Substring(0, 6))
+                    theReplacementMaterial = theReplacementMaterial.Split(Path.DirectorySeparatorChar)[0] switch
                     {
-                        case "dlc04\\":
-                            theReplacementMaterial = theReplacementMaterial.Replace("dlc04\\", "DLC04\\LOD\\");
-                            break;
-                        case "dlc03\\":
-                            theReplacementMaterial = theReplacementMaterial.Replace("dlc03\\", "DLC03\\LOD\\");
-                            break;
-                        default:
-                            theReplacementMaterial = $"LOD\\{theReplacementMaterial}";
-                            break;
-                    }
+                        "dlc04" => theReplacementMaterial.Replace("dlc04\\", "DLC04\\LOD\\"),
+                        "dlc03" => theReplacementMaterial.Replace("dlc03\\", "DLC03\\LOD\\"),
+                        _ => $"LOD\\{theReplacementMaterial}",
+                    };
                     lodSubstitutionsReplacement.Add(theReplacementMaterial);
                 }
                 if (n < 0) continue;
@@ -108,11 +128,64 @@ namespace FOLIP
                     n--;
                 }
             }
-            missingMaterials = missingMaterials.OrderBy(q => q).ToList();
-            foreach (string missingMaterial in missingMaterials)
+
+            //Add notes about possible missed materials for material swaps for lod author.
+            if (Settings.verboseConsoleLog)
             {
-                if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: Skipped\t{missingMaterial}");
+                missingMaterials = missingMaterials.OrderBy(q => q).ToList();
+                foreach (string missingMaterial in missingMaterials) Console.WriteLine($"Note for LOD author: Skipped\t{missingMaterial}");
             }
+
+            //Add lod meshes to static records
+            Console.WriteLine("Assigning LOD models...");
+
+            // Example of a found lod file:
+            //  dlc04\lod\architecture\galacticzone\walkways\galwalkwayrampsm03_lod_0.nif
+
+            foreach (var staticRecord in state.LoadOrder.PriorityOrder.Static().WinningOverrides())
+            {
+                if (staticRecord.Model is null) continue;
+                if (staticRecord.Model.File is null) continue;
+                //Console.WriteLine(staticRecord.Model.File);
+                //Console.WriteLine(Path.GetPathRoot(staticRecord.Model.File));
+                //Console.WriteLine(staticRecord.Model.File);
+                string baseFolder = staticRecord.Model.File.Split(Path.DirectorySeparatorChar)[0].ToLower();
+
+                string possibleLOD4Mesh;
+                string possibleLOD8Mesh;
+                string possibleLOD16Mesh;
+                string possibleLOD32Mesh;
+                string possibleLODMesh;
+
+                switch (baseFolder)
+                {
+                    case "dlc03":
+                        possibleLOD4Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\","dlc03\\lod\\").Replace(".nif", "_lod_0.nif")}";
+                        possibleLOD8Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_1.nif")}";
+                        possibleLOD16Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_2.nif")}";
+                        possibleLOD32Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_3.nif")}";
+                        possibleLODMesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod.nif")}";
+                        break;
+                    case "dlc04":
+                        possibleLOD4Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_0.nif")}";
+                        possibleLOD8Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_1.nif")}";
+                        possibleLOD16Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_2.nif")}";
+                        possibleLOD32Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_3.nif")}";
+                        possibleLODMesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod.nif")}";
+                        break;
+                    default:
+                        possibleLOD4Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", "_lod_0.nif")}";
+                        possibleLOD8Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", "_lod_1.nif")}";
+                        possibleLOD16Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", "_lod_2.nif")}";
+                        possibleLOD32Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", "_lod_3.nif")}";
+                        possibleLODMesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", "_lod.nif")}";
+                        break;
+                }
+                
+            }
+
+
+            //Add lod meshes for moveable statics... this might be hard lol
         }
     }
 }
