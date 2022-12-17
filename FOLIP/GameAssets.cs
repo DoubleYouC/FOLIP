@@ -4,7 +4,7 @@ namespace FOLIP
 	{
 		public static List<string> Files(string[] lookupFolders, string lookupPattern, string[] replacePattern)
         {
-			List<string> listOfFiles = new List<string>();
+			List<string> listOfFiles = new();
 
 			for (int i = 0; i < lookupFolders.Length; i++) {
 				string[] looseFiles = Directory.GetFiles(lookupFolders[i], lookupPattern, SearchOption.AllDirectories);
