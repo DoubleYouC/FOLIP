@@ -25,7 +25,7 @@ namespace FOLIP
         {
             Console.WriteLine("FOLIP START");
 
-            //Gather Assets
+            // Gather Assets.
             Console.WriteLine("Identifying LOD assets...");
 
             List<string> lodMaterialFiles = new();
@@ -51,7 +51,7 @@ namespace FOLIP
                 lodMeshes = GameAssets.Files(lodMeshesFileLocations, "*lod.nif", patternReplaceListMeshes);
             }
 
-            //Handle Material Swaps
+            // Handle Material Swaps.
             Console.WriteLine("Adding LOD material swaps...");
 
             List<string> missingMaterials = new();
@@ -78,29 +78,32 @@ namespace FOLIP
                     if (theOriginalMaterial is null) continue;
                     theOriginalMaterial = theOriginalMaterial.ToLower();
 
-                    //If the original material does not have a direct lod material, continue.
+                    // Skip if the original material does not have a direct lod material.
                     if (!lodMaterialFiles.Contains(theOriginalMaterial)) continue;
                     var theReplacementMaterial = substitution.ReplacementMaterial;
                     if (theReplacementMaterial is null) continue;
                     theReplacementMaterial = theReplacementMaterial.ToLower();
 
-                    //I used this code to find a specific problematic material swap, where the swap file didn't exist.
+                    // I used this code to find a specific problematic material swap, where the swap file didn't exist.
                     //if (theReplacementMaterial == "landscape\\ground\\grassdried01.bgsm")
                     //    Console.WriteLine(materialSwap.FormKey);
 
-                    //If the replacement material does not have a direct lod material, continue.
+                    // Skip if the replacement material does not have a direct lod material.
                     if (!lodMaterialFiles.Contains(theReplacementMaterial))
                     {
                         if (!missingMaterials.Contains(theReplacementMaterial))
                             missingMaterials.Add($"{theReplacementMaterial} RM\n\tfrom {theOriginalMaterial} OM.");
                         continue;
                     }
+
+                    // Skip if a ColorRemappingIndex is involved. This needs to be handled by the lod author manually.
                     if (substitution.ColorRemappingIndex is not null)
                     {
                         if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {materialSwap.FormKey} has a Color Remapping Index of {substitution.ColorRemappingIndex}. Please manually check this material swap for proper handling.");
                         continue;
                     }
 
+                    // Turns theOriginalMaterial into the path of the matching lod material. 
                     theOriginalMaterial = theOriginalMaterial.Split(Path.DirectorySeparatorChar)[0] switch
                     {
                         "dlc04" => theOriginalMaterial.Replace("dlc04\\", "DLC04\\LOD\\"),
@@ -108,9 +111,10 @@ namespace FOLIP
                         _ => $"LOD\\{theOriginalMaterial}",
                     };
 
-                    //If an already existing material swap exists for the lod material, skip.
+                    // Skip if an already existing material swap exists for the lod material.
                     if (existingSubstitutions.Contains(theOriginalMaterial.ToLower())) continue;
 
+                    // Turns theReplacementMaterial into the path of the matching lod material.
                     theReplacementMaterial = theReplacementMaterial.Split(Path.DirectorySeparatorChar)[0] switch
                     {
                         "dlc04" => theReplacementMaterial.Replace("dlc04\\", "DLC04\\LOD\\"),
@@ -126,8 +130,14 @@ namespace FOLIP
                     lodSubstitutionsReplacement.Add(theReplacementMaterial);
                     n += 1;
                 }
+
+                // Skip if no lod material swaps were added.
                 if (n < 0) continue;
+
+                // Add material swap to patch
                 var myFavoriteMaterialSwap = state.PatchMod.MaterialSwaps.GetOrAddAsOverride(materialSwap);
+
+                // Add missing lod material swaps.
                 while (n >= 0)
                 {
                     myFavoriteMaterialSwap.Substitutions.Add(new MaterialSubstitution
@@ -148,30 +158,26 @@ namespace FOLIP
 
             if (Settings.devCode)
             {
-                //Add lod meshes to static records
+                // Add lod meshes to static records
                 Console.WriteLine("Assigning LOD models...");
 
                 foreach (var staticRecord in state.LoadOrder.PriorityOrder.Static().WinningOverrides())
                 {
+                    // Skip null statics.
                     if (staticRecord is null || staticRecord.Model is null || staticRecord.Model.File is null) continue;
-                    //Console.WriteLine(staticRecord.Model.File);
-                    //Console.WriteLine(Path.GetPathRoot(staticRecord.Model.File));
-                    //Console.WriteLine(staticRecord.Model.File);
+                    
+                    // Split model file name path to see if it is from a dlc.
                     string baseFolder = staticRecord.Model.File.Split(Path.DirectorySeparatorChar)[0].ToLower();
 
                     string possibleLOD4Mesh;
-                    bool lod4MeshExists = false;
                     string possibleLOD8Mesh;
-                    bool lod8MeshExists = false;
                     string possibleLOD16Mesh;
-                    bool lod16MeshExists = false;
                     string possibleLOD32Mesh;
-                    bool lod32MeshExists = false;
                     string possibleLODMesh;
-                    bool lodMeshExists = false;
                     string[] assignedlodMeshes = { "", "", "", "" };
                     bool hasLodMeshes = false;
 
+                    // Get file names of possible lod meshes based off the filename (e.g. meshes\somefolder\somemodel.nif would match to meshes\lod\somefolder\somemodel_lod_0.nif).
                     switch (baseFolder)
                     {
                         case "dlc03":
@@ -196,91 +202,102 @@ namespace FOLIP
                             possibleLODMesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", "_lod.nif")}";
                             break;
                     }
+
+                    // Check if the possible lod meshes do actually exist. If they do, add them to the list of lod meshes to possibly assign.
                     if (lod4Meshes.Contains(possibleLOD4Mesh))
                     {
-                        lod4MeshExists = true;
                         hasLodMeshes = true;
                         assignedlodMeshes[0] = possibleLOD4Mesh;
                     }
                     else if (lodMeshes.Contains(possibleLODMesh))
                     {
-                        lodMeshExists = true;
                         hasLodMeshes = true;
                         assignedlodMeshes[0] = possibleLODMesh;
                     }
                     if (lod8Meshes.Contains(possibleLOD8Mesh))
                     {
-                        lod8MeshExists = true;
                         hasLodMeshes = true;
                         assignedlodMeshes[1] = possibleLOD8Mesh;
                     }
                     if (lod16Meshes.Contains(possibleLOD16Mesh))
                     {
-                        lod16MeshExists = true;
                         hasLodMeshes = true;
                         assignedlodMeshes[2] = possibleLOD16Mesh;
                     }
                     if (lod32Meshes.Contains(possibleLOD32Mesh))
                     {
-                        lod32MeshExists = true;
                         hasLodMeshes = true;
                         assignedlodMeshes[3] = possibleLOD32Mesh;
                     }
 
-                    //foreach (var distantLODMesh in staticRecord.DistantLods)
-                    //    Console.WriteLine(distantLODMesh.Mesh);
-
-                    //Skip statics that don't have any lod meshes
+                    // Skip statics that don't have any lod meshes
                     if (!hasLodMeshes) continue;
 
-                    if (staticRecord is null) continue;
-                    // Set the HasDistantLOD flag if it isn't already set.
-
-                    var myFavoriteStatic = state.PatchMod.Statics.GetOrAddAsOverride(staticRecord);
-                    if (!EnumExt.HasFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod))
+                    // Retrieve any DistantLods meshes currently assigned.
+                    List<string> currentLodMeshes = new();
+                    foreach (var distantLodList in staticRecord.DistantLods)
                     {
-                        myFavoriteStatic.MajorRecordFlagsRaw = EnumExt.SetFlag(myFavoriteStatic.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, true);
-                        Console.WriteLine($"{myFavoriteStatic.FormKey}     {assignedlodMeshes[0]}     {assignedlodMeshes[1]}     {assignedlodMeshes[2]}     {assignedlodMeshes[3]}");
+                        if (distantLodList.Mesh.Length > 0)
+                            currentLodMeshes.Add(distantLodList.Mesh.ToLower());
                     }
 
-                    // This doesn't work.
-                    //add lod meshes
-                    //if (lod4MeshExists)
-                    //    myFavoriteStatic.DistantLods[0].Mesh = possibleLOD4Mesh;
-                    //else if (lodMeshExists)
-                    //    myFavoriteStatic.DistantLods[0].Mesh = possibleLODMesh;
-                    //if (lod8MeshExists)
-                    //    myFavoriteStatic.DistantLods[1].Mesh = possibleLOD8Mesh;
-                    //if (lod16MeshExists)
-                    //    myFavoriteStatic.DistantLods[2].Mesh = possibleLOD16Mesh;
-                    //if (lod32MeshExists)
-                    //    myFavoriteStatic.DistantLods[3].Mesh = possibleLOD32Mesh;
-                    //int i = 0;
+                    // Checks to see if DistantLods meshes detected are assigned.
+                    bool hasDistantLodMeshesChanged = false;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        // Is there a assigned lod mesh found?
+                        bool FoundLodMesh = false;
+                        if (assignedlodMeshes[i].Length > 0)
+                            FoundLodMesh = true;
 
-                    //foreach (var distantLodList in myFavoriteStatic.DistantLods)
-                    //{
-                    //    //Console.WriteLine(distantLodList.Data);
-                    //    distantLodList.Clear();
-                    //    switch (i)
-                    //    {
-                    //        case 0:
-                    //            if (lod4MeshExists) distantLodList.Mesh = possibleLOD4Mesh;
-                    //            else if (lodMeshExists) distantLodList.Mesh = possibleLODMesh;
-                    //            break;
-                    //        case 1:
-                    //            if (lod8MeshExists) distantLodList.Mesh = possibleLOD8Mesh;
-                    //            break;
-                    //        case 2:
-                    //            if (lod16MeshExists) distantLodList.Mesh = possibleLOD16Mesh;
-                    //            break;
-                    //        case 3:
-                    //            if (lod32MeshExists) distantLodList.Mesh = possibleLOD32Mesh;
-                    //            break;
-                    //    }
-                    //    i++;
-                    //}
+                        // Is there an already existing assigned lod mesh?
+                        bool ExistingLodMesh = false;
+                        if (currentLodMeshes is not null && currentLodMeshes.Count > i)
+                            ExistingLodMesh = true;
 
+                        // If there is a found and already existing assigned lod mesh... If the found lod mesh is not the same as the existing assigned lod mesh...
+                        if (FoundLodMesh && ExistingLodMesh && currentLodMeshes is not null && (!(assignedlodMeshes[i] == currentLodMeshes[i])))
+                            hasDistantLodMeshesChanged = true;
 
+                        // If there is no found lod mesh, but one is already assigned, use it.
+                        if (!FoundLodMesh && ExistingLodMesh && currentLodMeshes is not null)
+                            assignedlodMeshes[i] = currentLodMeshes[i];
+                    }
+
+                    // Checks to see if the HasDistantLod flag needs to be set.
+                    bool needsHasDistantLodFlag = true;
+                    if (EnumExt.HasFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod))
+                        needsHasDistantLodFlag = false;
+
+                    // Skip if the static doesn't need its HasDistantLod flag set, or it doesn't need its DistantLods meshes re-assigned.
+                    if (needsHasDistantLodFlag || !hasDistantLodMeshesChanged) continue;
+
+                    // Add the static to the patch
+                    var myFavoriteStatic = state.PatchMod.Statics.GetOrAddAsOverride(staticRecord);
+
+                    // Set the HasDistantLOD flag.
+                    myFavoriteStatic.MajorRecordFlagsRaw = EnumExt.SetFlag(myFavoriteStatic.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, true);
+
+                    // Optional readout of static with its lod meshes assigned.
+                    if (Settings.verboseConsoleLog)
+                        Console.WriteLine($"{myFavoriteStatic.FormKey}     {assignedlodMeshes[0]}     {assignedlodMeshes[1]}     {assignedlodMeshes[2]}     {assignedlodMeshes[3]}");
+                    
+                    // Clear assigned DistantLods meshes.
+                    myFavoriteStatic.DistantLods.Clear();
+
+                    // Assign DistantLods meshes.
+                    for (int i = 0; i < 4; i++)
+                    {
+                        if (assignedlodMeshes[i].Length > 0)
+                        {
+                            var item = new DistantLod()
+                            {
+                                Mesh = assignedlodMeshes[i],
+                                Data = new byte[260 - assignedlodMeshes[i].Length - 1],
+                            };
+                            myFavoriteStatic.DistantLods.Add(item);
+                        }
+                    }
                 }
 
 
