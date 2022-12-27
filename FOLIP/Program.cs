@@ -20,7 +20,6 @@ namespace FOLIP
                 .SetTypicalOpen(GameRelease.Fallout4, "FOLIP-Dynamic.esp")
                 .Run(args);
         }
-
         public static void RunPatch(IPatcherState<IFallout4Mod, IFallout4ModGetter> state)
         {
             Console.WriteLine("FOLIP START");
@@ -149,6 +148,7 @@ namespace FOLIP
                 }
             }
 
+            
             //Add notes about possible missed materials for material swaps for lod author.
             if (Settings.verboseConsoleLog)
             {
@@ -241,8 +241,11 @@ namespace FOLIP
                             currentLodMeshes.Add(distantLodList.Mesh.ToLower());
                     }
 
+                    while (currentLodMeshes.Count < 4)
+                        currentLodMeshes.Add("");
+
                     // Checks to see if DistantLods meshes detected are assigned.
-                    bool hasDistantLodMeshesChanged = false;
+                    bool hasDistantLodMeshesChanged = true;
                     for (int i = 0; i < 4; i++)
                     {
                         // Is there a assigned lod mesh found?
@@ -255,22 +258,16 @@ namespace FOLIP
                         if (currentLodMeshes is not null && currentLodMeshes.Count > i)
                             ExistingLodMesh = true;
 
-                        // If there is a found and already existing assigned lod mesh... If the found lod mesh is not the same as the existing assigned lod mesh...
-                        if (FoundLodMesh && ExistingLodMesh && currentLodMeshes is not null && (!(assignedlodMeshes[i] == currentLodMeshes[i])))
-                            hasDistantLodMeshesChanged = true;
-
                         // If there is no found lod mesh, but one is already assigned, use it.
                         if (!FoundLodMesh && ExistingLodMesh && currentLodMeshes is not null)
                             assignedlodMeshes[i] = currentLodMeshes[i];
                     }
 
-                    // Checks to see if the HasDistantLod flag needs to be set.
-                    bool needsHasDistantLodFlag = true;
-                    if (EnumExt.HasFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod))
-                        needsHasDistantLodFlag = false;
+                    if (currentLodMeshes is not null && assignedlodMeshes.SequenceEqual(currentLodMeshes))
+                        hasDistantLodMeshesChanged = false;
 
-                    // Skip if the static doesn't need its HasDistantLod flag set, or it doesn't need its DistantLods meshes re-assigned.
-                    if (needsHasDistantLodFlag || !hasDistantLodMeshesChanged) continue;
+                    // Skip if the static already has the HasDistantLOD flag and its lod meshes hasn't changed.
+                    if (EnumExt.HasFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod) && !hasDistantLodMeshesChanged) continue;
 
                     // Add the static to the patch
                     var myFavoriteStatic = state.PatchMod.Statics.GetOrAddAsOverride(staticRecord);
@@ -302,6 +299,114 @@ namespace FOLIP
 
 
                 //Add lod meshes for moveable statics... this might be hard lol
+                Console.WriteLine("Adding LOD for Moveable Statics...");
+
+                IDictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey> movableStaticLod = new Dictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey>();
+                IDictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey> movableStaticLodMaterialSwaps = new Dictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey>();
+
+                foreach (var moveableStaticRecord in state.LoadOrder.PriorityOrder.MovableStatic().WinningOverrides())
+                {
+                    // Skip null statics.
+                    if (moveableStaticRecord is null || moveableStaticRecord.Model is null || moveableStaticRecord.Model.File is null) continue;
+
+                    // Split model file name path to see if it is from a dlc.
+                    string baseFolder = moveableStaticRecord.Model.File.Split(Path.DirectorySeparatorChar)[0].ToLower();
+
+                    string possibleLOD4Mesh;
+                    string possibleLOD8Mesh;
+                    string possibleLOD16Mesh;
+                    string possibleLOD32Mesh;
+                    string[] assignedlodMeshes = { "", "", "", "" };
+                    bool hasLodMeshes = false;
+
+                    // Get file names of possible lod meshes based off the filename (e.g. meshes\somefolder\somemodel.nif would match to meshes\lod\somefolder\somemodel_lod_0.nif).
+                    switch (baseFolder)
+                    {
+                        case "dlc03":
+                            possibleLOD4Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_0.nif")}";
+                            possibleLOD8Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_1.nif")}";
+                            possibleLOD16Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_2.nif")}";
+                            possibleLOD32Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_3.nif")}";
+                            break;
+                        case "dlc04":
+                            possibleLOD4Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_0.nif")}";
+                            possibleLOD8Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_1.nif")}";
+                            possibleLOD16Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_2.nif")}";
+                            possibleLOD32Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_3.nif")}";
+                            break;
+                        default:
+                            possibleLOD4Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", "_lod_0.nif")}";
+                            possibleLOD8Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", "_lod_1.nif")}";
+                            possibleLOD16Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", "_lod_2.nif")}";
+                            possibleLOD32Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", "_lod_3.nif")}";
+                            break;
+                    }
+
+                    // Check if the possible lod meshes do actually exist. If they do, add them to the list of lod meshes to possibly assign.
+                    if (lod4Meshes.Contains(possibleLOD4Mesh))
+                    {
+                        hasLodMeshes = true;
+                        assignedlodMeshes[0] = possibleLOD4Mesh;
+                    }
+                    if (lod8Meshes.Contains(possibleLOD8Mesh))
+                    {
+                        hasLodMeshes = true;
+                        assignedlodMeshes[1] = possibleLOD8Mesh;
+                    }
+                    if (lod16Meshes.Contains(possibleLOD16Mesh))
+                    {
+                        hasLodMeshes = true;
+                        assignedlodMeshes[2] = possibleLOD16Mesh;
+                    }
+                    if (lod32Meshes.Contains(possibleLOD32Mesh))
+                    {
+                        hasLodMeshes = true;
+                        assignedlodMeshes[3] = possibleLOD32Mesh;
+                    }
+
+                    // Skip moveable statics that don't have any lod meshes
+                    if (!hasLodMeshes) continue;
+
+                    // Add a new fake static record for the moveable static
+                    var fakeStatic = state.PatchMod.Statics.AddNew("FOLIP_" + moveableStaticRecord.EditorID + "_FakeStatic");
+                    fakeStatic.MajorRecordFlagsRaw = (int)Static.MajorFlag.HasDistantLod;
+                    fakeStatic.Model = new Model();
+                    if (moveableStaticRecord.Model.MaterialSwap is not null)
+                        fakeStatic.Model.MaterialSwap.SetTo(moveableStaticRecord.Model.MaterialSwap);
+                    if (moveableStaticRecord.Model.ColorRemappingIndex is not null)
+                        fakeStatic.Model.ColorRemappingIndex = moveableStaticRecord.Model.ColorRemappingIndex;
+                    fakeStatic.ObjectBounds = new ObjectBounds();
+                    if (moveableStaticRecord.ObjectBounds is not null)
+                    {
+                        fakeStatic.ObjectBounds.First = moveableStaticRecord.ObjectBounds.First;
+                        fakeStatic.ObjectBounds.Second = moveableStaticRecord.ObjectBounds.Second;
+                    }
+
+                    // Add the lods to the fake static
+                    for (int i = 0; i < 4; i++)
+                    {
+                        if (assignedlodMeshes[i].Length > 0)
+                        {
+                            var item = new DistantLod()
+                            {
+                                Mesh = assignedlodMeshes[i],
+                                Data = new byte[260 - assignedlodMeshes[i].Length - 1],
+                            };
+                            fakeStatic.DistantLods.Add(item);
+                        }
+                    }
+                    movableStaticLod.Add(moveableStaticRecord.FormKey, fakeStatic.FormKey);
+                    if (moveableStaticRecord.Model.MaterialSwap is not null)
+                        movableStaticLodMaterialSwaps.Add(moveableStaticRecord.FormKey, moveableStaticRecord.Model.MaterialSwap.FormKey);
+                }
+
+                foreach (var placedObjectGetter in state.LoadOrder.PriorityOrder.OnlyEnabled().PlacedObject().WinningContextOverrides(state.LinkCache))
+                {
+                    if (!movableStaticLod.ContainsKey(placedObjectGetter.Record.Base.FormKey)) continue;
+                    if (!placedObjectGetter.TryGetParentContext<IWorldspace, IWorldspaceGetter>(out var worldspaceContext)) continue;
+                    IPlacedObject copiedPlacedObject = placedObjectGetter.DuplicateIntoAsNewRecord(state.PatchMod);
+                    copiedPlacedObject.Base.SetTo(movableStaticLod[placedObjectGetter.Record.Base.FormKey]);
+                }
             }
         }
     }
