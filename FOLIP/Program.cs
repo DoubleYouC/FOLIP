@@ -2,6 +2,8 @@ using Mutagen.Bethesda;
 using Mutagen.Bethesda.Synthesis;
 using Mutagen.Bethesda.Fallout4;
 using Noggog;
+using Mutagen.Bethesda.Plugins;
+
 
 namespace FOLIP
 {
@@ -99,7 +101,7 @@ namespace FOLIP
                     if (!lodMaterialFiles.Contains(theReplacementMaterial))
                     {
                         if (substitution.ColorRemappingIndex is not null)
-                            Console.WriteLine($"Missing {theReplacementMaterial}");
+                            if (Settings.verboseConsoleLog) Console.WriteLine($"Missing {theReplacementMaterial}");
                         if (!missingMaterials.Contains(theReplacementMaterial))
                             missingMaterials.Add($"{theReplacementMaterial} RM\n\tfrom {theOriginalMaterial} OM.");
                         continue;
@@ -424,6 +426,24 @@ namespace FOLIP
                     if (!placedObjectGetter.TryGetParentContext<IWorldspace, IWorldspaceGetter>(out var worldspaceContext)) continue;
                     IPlacedObject copiedPlacedObject = placedObjectGetter.DuplicateIntoAsNewRecord(state.PatchMod);
                     copiedPlacedObject.Base.SetTo(movableStaticLod[placedObjectGetter.Record.Base.FormKey]);
+                }
+            }
+
+            // Fix bugs in mods
+
+            IFallout4ModGetter? AnnexTheCommonwealth = state.LoadOrder.TryGetValue(ModKey.FromFileName("AnnexTheCommonwealth.esm"))?.Mod ?? null;
+            if (AnnexTheCommonwealth is not null)
+            {
+                foreach (var staticRecord in AnnexTheCommonwealth.Statics)
+                {
+                    if (!EnumExt.HasFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod)) continue;
+
+                    //add it to the patch
+                    var myFavoriteStatic = state.PatchMod.Statics.GetOrAddAsOverride(staticRecord);
+
+                    //remove flag
+                    myFavoriteStatic.MajorRecordFlagsRaw = EnumExt.SetFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, false);
+                    Console.WriteLine($"Removed HasDistantLOD flag from {staticRecord.FormKey}.");
                 }
             }
         }
