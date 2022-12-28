@@ -79,6 +79,7 @@ namespace FOLIP
 
                     // Skip if the original material does not have a direct lod material.
                     if (!lodMaterialFiles.Contains(theOriginalMaterial)) continue;
+
                     var theReplacementMaterial = substitution.ReplacementMaterial;
                     if (theReplacementMaterial is null) continue;
                     theReplacementMaterial = theReplacementMaterial.ToLower();
@@ -87,18 +88,20 @@ namespace FOLIP
                     //if (theReplacementMaterial == "landscape\\ground\\grassdried01.bgsm")
                     //    Console.WriteLine(materialSwap.FormKey);
 
+                    // Material replacements with a ColorRemappingIndex should be appended onto the lod material name.
+                    if (substitution.ColorRemappingIndex is not null)
+                    {
+                        theReplacementMaterial = theReplacementMaterial.Replace(".bgsm", $"_{substitution.ColorRemappingIndex}.bgsm");
+                        if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {materialSwap.FormKey} Material Swap has a Color Remapping Index of {substitution.ColorRemappingIndex}.");
+                    }
+
                     // Skip if the replacement material does not have a direct lod material.
                     if (!lodMaterialFiles.Contains(theReplacementMaterial))
                     {
+                        if (substitution.ColorRemappingIndex is not null)
+                            Console.WriteLine($"Missing {theReplacementMaterial}");
                         if (!missingMaterials.Contains(theReplacementMaterial))
                             missingMaterials.Add($"{theReplacementMaterial} RM\n\tfrom {theOriginalMaterial} OM.");
-                        continue;
-                    }
-
-                    // Skip if a ColorRemappingIndex is involved. This needs to be handled by the lod author manually.
-                    if (substitution.ColorRemappingIndex is not null)
-                    {
-                        if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {materialSwap.FormKey} has a Color Remapping Index of {substitution.ColorRemappingIndex}. Please manually check this material swap for proper handling.");
                         continue;
                     }
 
@@ -177,29 +180,36 @@ namespace FOLIP
                     string[] assignedlodMeshes = { "", "", "", "" };
                     bool hasLodMeshes = false;
 
+                    string colorRemap = "";
+                    if (staticRecord.Model.ColorRemappingIndex is not null)
+                    {
+                        colorRemap = $"_{staticRecord.Model.ColorRemappingIndex}";
+                        if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {staticRecord.FormKey} Static has a Color Remapping Index of {staticRecord.Model.ColorRemappingIndex}.");
+                    }
+
                     // Get file names of possible lod meshes based off the filename (e.g. meshes\somefolder\somemodel.nif would match to meshes\lod\somefolder\somemodel_lod_0.nif).
                     switch (baseFolder)
                     {
                         case "dlc03":
-                            possibleLOD4Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_0.nif")}";
-                            possibleLOD8Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_1.nif")}";
-                            possibleLOD16Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_2.nif")}";
-                            possibleLOD32Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_3.nif")}";
-                            possibleLODMesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod.nif")}";
+                            possibleLOD4Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                            possibleLODMesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
                             break;
                         case "dlc04":
-                            possibleLOD4Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_0.nif")}";
-                            possibleLOD8Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_1.nif")}";
-                            possibleLOD16Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_2.nif")}";
-                            possibleLOD32Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_3.nif")}";
-                            possibleLODMesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod.nif")}";
+                            possibleLOD4Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                            possibleLODMesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
                             break;
                         default:
-                            possibleLOD4Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", "_lod_0.nif")}";
-                            possibleLOD8Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", "_lod_1.nif")}";
-                            possibleLOD16Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", "_lod_2.nif")}";
-                            possibleLOD32Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", "_lod_3.nif")}";
-                            possibleLODMesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", "_lod.nif")}";
+                            possibleLOD4Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                            possibleLODMesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod.nif")}";
                             break;
                     }
 
@@ -319,26 +329,33 @@ namespace FOLIP
                     string[] assignedlodMeshes = { "", "", "", "" };
                     bool hasLodMeshes = false;
 
+                    string colorRemap = "";
+                    if (moveableStaticRecord.Model.ColorRemappingIndex is not null)
+                    {
+                        colorRemap = $"_{moveableStaticRecord.Model.ColorRemappingIndex}";
+                        if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {moveableStaticRecord.FormKey} Moveable Static has a Color Remapping Index of {moveableStaticRecord.Model.ColorRemappingIndex}.");
+                    }
+
                     // Get file names of possible lod meshes based off the filename (e.g. meshes\somefolder\somemodel.nif would match to meshes\lod\somefolder\somemodel_lod_0.nif).
                     switch (baseFolder)
                     {
                         case "dlc03":
-                            possibleLOD4Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_0.nif")}";
-                            possibleLOD8Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_1.nif")}";
-                            possibleLOD16Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_2.nif")}";
-                            possibleLOD32Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", "_lod_3.nif")}";
+                            possibleLOD4Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
                             break;
                         case "dlc04":
-                            possibleLOD4Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_0.nif")}";
-                            possibleLOD8Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_1.nif")}";
-                            possibleLOD16Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_2.nif")}";
-                            possibleLOD32Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", "_lod_3.nif")}";
+                            possibleLOD4Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
                             break;
                         default:
-                            possibleLOD4Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", "_lod_0.nif")}";
-                            possibleLOD8Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", "_lod_1.nif")}";
-                            possibleLOD16Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", "_lod_2.nif")}";
-                            possibleLOD32Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", "_lod_3.nif")}";
+                            possibleLOD4Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_3.nif")}";
                             break;
                     }
 
@@ -400,6 +417,7 @@ namespace FOLIP
                         movableStaticLodMaterialSwaps.Add(moveableStaticRecord.FormKey, moveableStaticRecord.Model.MaterialSwap.FormKey);
                 }
 
+                // Iterate over placed objects.
                 foreach (var placedObjectGetter in state.LoadOrder.PriorityOrder.OnlyEnabled().PlacedObject().WinningContextOverrides(state.LinkCache))
                 {
                     if (!movableStaticLod.ContainsKey(placedObjectGetter.Record.Base.FormKey)) continue;
