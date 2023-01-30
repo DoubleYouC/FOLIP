@@ -3,7 +3,7 @@
   "Visibility": "Visible",
   "OneLineDescription": "Controls some LOD related tasks for FOLIP.",
   "LongDescription": "Controls some LOD related tasks for Far Object LOD Improvement Project.",
-  "PreferredAutoVersioning": "Default",
+  "PreferredAutoVersioning": "LatestDefaultBranch",
   "RequiredMods": [],
   "TargetedReleases": [
     "Fallout4"
