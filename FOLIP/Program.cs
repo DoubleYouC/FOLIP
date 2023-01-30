@@ -27,6 +27,25 @@ namespace FOLIP
         {
             Console.WriteLine("FOLIP START");
 
+            if (!File.Exists($"{state.DataFolderPath}\\FOLIP\\MaterialSwapMap.json"))
+            {
+                Console.WriteLine(@"****************************************************************************************************************************************************************
+
+Please update the FOLIP mod (not this patcher) to the latest version! Missing required file FOLIP\MaterialSwapMap.json.
+
+****************************************************************************************************************************************************************");
+                throw new TaskCanceledException("Please update the FOLIP mod (not this patcher) to the latest version! Missing required file FOLIP\\MaterialSwapMap.json.");
+            }
+            if (!File.Exists($"{state.DataFolderPath}\\FOLIP\\LODRules.json"))
+            {
+                Console.WriteLine(@"****************************************************************************************************************************************************************
+
+Please update the FOLIP mod (not this patcher) to the latest version! Missing required file FOLIP\LODRules.json.
+
+****************************************************************************************************************************************************************");
+                throw new TaskCanceledException("Please update the FOLIP mod (not this patcher) to the latest version! Missing required file FOLIP\\LODRules.json.");
+            }
+
             // Gather Assets.
             Console.WriteLine("Identifying LOD assets...");
 
@@ -44,14 +63,11 @@ namespace FOLIP
 
             lodMaterialFiles = GameAssets.Files(lodMaterialFileLocations, "*.bgsm", patternReplaceListMaterials);
 
-            if (Settings.devCode)
-            {
-                lod4Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_0.nif", patternReplaceListMeshes);
-                lod8Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_1.nif", patternReplaceListMeshes);
-                lod16Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_2.nif", patternReplaceListMeshes);
-                lod32Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_3.nif", patternReplaceListMeshes);
-                lodMeshes = GameAssets.Files(lodMeshesFileLocations, "*lod.nif", patternReplaceListMeshes);
-            }
+            lod4Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_0.nif", patternReplaceListMeshes);
+            lod8Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_1.nif", patternReplaceListMeshes);
+            lod16Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_2.nif", patternReplaceListMeshes);
+            lod32Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_3.nif", patternReplaceListMeshes);
+            lodMeshes = GameAssets.Files(lodMeshesFileLocations, "*lod.nif", patternReplaceListMeshes);
 
             // Handle Material Swaps.
             Console.WriteLine("Adding LOD material swaps...");
@@ -216,321 +232,319 @@ namespace FOLIP
                 foreach (string missingMaterial in missingMaterials) Console.WriteLine($"Note for LOD author: Skipped\t{missingMaterial}");
             }
 
-            if (Settings.devCode)
+            // Add lod meshes to static records
+            Console.WriteLine("Assigning LOD models...");
+
+            string LODRulesJson = File.ReadAllText($"{state.DataFolderPath}\\FOLIP\\LODRules.json");
+            var LODRules = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(LODRulesJson);
+
+            foreach (var staticRecord in state.LoadOrder.PriorityOrder.Static().WinningOverrides())
             {
-                // Add lod meshes to static records
-                Console.WriteLine("Assigning LOD models...");
+                // Skip null statics.
+                if (staticRecord is null || staticRecord.Model is null || staticRecord.Model.File is null) continue;
 
-                string LODRulesJson = File.ReadAllText($"{state.DataFolderPath}\\FOLIP\\LODRules.json");
-                var LODRules = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(LODRulesJson);
+                string modelFile = staticRecord.Model.File.ToLower();
 
-                foreach (var staticRecord in state.LoadOrder.PriorityOrder.Static().WinningOverrides())
+                // Split model file name path to see if it is from a dlc.
+                string baseFolder = modelFile.Split(Path.DirectorySeparatorChar)[0];
+
+                string possibleLOD4Mesh;
+                string possibleLOD8Mesh;
+                string possibleLOD16Mesh;
+                string possibleLOD32Mesh;
+                string possibleLODMesh;
+                string[] assignedlodMeshes = { "", "", "", "" };
+                bool hasLodMeshes = false;
+
+                string colorRemap = "";
+                if (staticRecord.Model.ColorRemappingIndex is not null)
                 {
-                    // Skip null statics.
-                    if (staticRecord is null || staticRecord.Model is null || staticRecord.Model.File is null) continue;
-
-                    string modelFile = staticRecord.Model.File.ToLower();
-
-                    // Split model file name path to see if it is from a dlc.
-                    string baseFolder = modelFile.Split(Path.DirectorySeparatorChar)[0];
-
-                    string possibleLOD4Mesh;
-                    string possibleLOD8Mesh;
-                    string possibleLOD16Mesh;
-                    string possibleLOD32Mesh;
-                    string possibleLODMesh;
-                    string[] assignedlodMeshes = { "", "", "", "" };
-                    bool hasLodMeshes = false;
-
-                    string colorRemap = "";
-                    if (staticRecord.Model.ColorRemappingIndex is not null)
-                    {
-                        colorRemap = $"_{staticRecord.Model.ColorRemappingIndex}";
-                        if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {staticRecord.FormKey} Static has a Color Remapping Index of {staticRecord.Model.ColorRemappingIndex}.");
-                    }
-
-                    // Get file names of possible lod meshes based off the filename (e.g. meshes\somefolder\somemodel.nif would match to meshes\lod\somefolder\somemodel_lod_0.nif).
-                    switch (baseFolder)
-                    {
-                        case "dlc03":
-                            possibleLOD4Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
-                            possibleLOD8Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
-                            possibleLOD16Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
-                            possibleLOD32Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
-                            possibleLODMesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
-                            break;
-                        case "dlc04":
-                            possibleLOD4Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
-                            possibleLOD8Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
-                            possibleLOD16Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
-                            possibleLOD32Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
-                            possibleLODMesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
-                            break;
-                        default:
-                            possibleLOD4Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_0.nif")}";
-                            possibleLOD8Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_1.nif")}";
-                            possibleLOD16Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_2.nif")}";
-                            possibleLOD32Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_3.nif")}";
-                            possibleLODMesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod.nif")}";
-                            break;
-                    }
-
-                    // Check if the possible lod meshes do actually exist. If they do, add them to the list of lod meshes to possibly assign.
-                    if (lod4Meshes.Contains(possibleLOD4Mesh))
-                    {
-                        hasLodMeshes = true;
-                        assignedlodMeshes[0] = possibleLOD4Mesh;
-                    }
-                    else if (lodMeshes.Contains(possibleLODMesh))
-                    {
-                        hasLodMeshes = true;
-                        assignedlodMeshes[0] = possibleLODMesh;
-                    }
-                    if (lod8Meshes.Contains(possibleLOD8Mesh))
-                    {
-                        hasLodMeshes = true;
-                        assignedlodMeshes[1] = possibleLOD8Mesh;
-                    }
-                    if (lod16Meshes.Contains(possibleLOD16Mesh))
-                    {
-                        hasLodMeshes = true;
-                        assignedlodMeshes[2] = possibleLOD16Mesh;
-                    }
-                    if (lod32Meshes.Contains(possibleLOD32Mesh))
-                    {
-                        hasLodMeshes = true;
-                        assignedlodMeshes[3] = possibleLOD32Mesh;
-                    }
-
-                    string RuleHasDistantLOD = "true";
-                    List<string> RuleLodMeshes = new();
-
-                    bool hasLODRules = false;
-                    if (LODRules is not null && LODRules.ContainsKey(modelFile))
-                    {
-                        RuleHasDistantLOD = LODRules[modelFile]["hasdistantlod"];
-                        RuleLodMeshes.Add(LODRules[modelFile]["lod4"]);
-                        RuleLodMeshes.Add(LODRules[modelFile]["lod8"]);
-                        RuleLodMeshes.Add(LODRules[modelFile]["lod16"]);
-                        RuleLodMeshes.Add(LODRules[modelFile]["lod32"]);
-                        hasLODRules = true;
-                    }
-
-                    // Skip statics that don't have any lod meshes
-                    if (!hasLodMeshes && !hasLODRules) continue;
-
-                    // Retrieve any DistantLods meshes currently assigned.
-                    List<string> currentLodMeshes = new();
-                    foreach (var distantLodList in staticRecord.DistantLods)
-                    {
-                        if (distantLodList.Mesh.Length > 0)
-                            currentLodMeshes.Add(distantLodList.Mesh.ToLower());
-                    }
-
-                    while (currentLodMeshes.Count < 4)
-                        currentLodMeshes.Add("");
-
-                    // Checks to see if DistantLods meshes detected are assigned.
-                    bool hasDistantLodMeshesChanged = true;
-                    for (int i = 0; i < 4; i++)
-                    {
-                        if (hasLODRules)
-                        {
-                            assignedlodMeshes[i] = RuleLodMeshes[i];
-                            continue;
-                        }
-
-                        // Is there an assigned lod mesh found?
-                        bool FoundLodMesh = false;
-                        if (assignedlodMeshes[i].Length > 0)
-                            FoundLodMesh = true;
-
-                        // Is there an already existing assigned lod mesh?
-                        bool ExistingLodMesh = false;
-                        if (currentLodMeshes is not null && currentLodMeshes.Count > i)
-                            ExistingLodMesh = true;
-
-                        // If there is no found lod mesh, but one is already assigned, use it.
-                        if (!FoundLodMesh && ExistingLodMesh && currentLodMeshes is not null)
-                            assignedlodMeshes[i] = currentLodMeshes[i];
-                    }
-
-                    if (currentLodMeshes is not null && assignedlodMeshes.SequenceEqual(currentLodMeshes))
-                        hasDistantLodMeshesChanged = false;
-
-                    bool hasDistantLodFlag = Enums.HasFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod);
-
-                    // Skip if the static already has the HasDistantLOD flag and its lod meshes hasn't changed.
-                    if (hasDistantLodFlag && !hasDistantLodMeshesChanged && (!hasLODRules || hasLODRules && RuleHasDistantLOD == "true")) continue;
-
-                    if (!hasDistantLodFlag && hasLODRules && RuleHasDistantLOD =="false") continue;
-
-                    // Add the static to the patch
-                    var myFavoriteStatic = state.PatchMod.Statics.GetOrAddAsOverride(staticRecord);
-
-                    // Set the HasDistantLOD flag.
-                    if (RuleHasDistantLOD == "false")
-                        myFavoriteStatic.MajorRecordFlagsRaw = Enums.SetFlag(myFavoriteStatic.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, false);
-                    else
-                        myFavoriteStatic.MajorRecordFlagsRaw = Enums.SetFlag(myFavoriteStatic.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, true);
-                    
-                    // Optional readout of static with its lod meshes assigned.
-                    if (Settings.verboseConsoleLog)
-                        Console.WriteLine($"{myFavoriteStatic.FormKey}     {assignedlodMeshes[0]}     {assignedlodMeshes[1]}     {assignedlodMeshes[2]}     {assignedlodMeshes[3]}");
-                    
-                    // Clear assigned DistantLods meshes.
-                    myFavoriteStatic.DistantLods.Clear();
-
-                    // Assign DistantLods meshes.
-                    for (int i = 0; i < 4; i++)
-                    {
-                        if (assignedlodMeshes[i].Length > 0)
-                        {
-                            var item = new DistantLod()
-                            {
-                                Mesh = assignedlodMeshes[i],
-                                Data = new byte[260 - assignedlodMeshes[i].Length - 1],
-                            };
-                            myFavoriteStatic.DistantLods.Add(item);
-                        }
-                    }
+                    colorRemap = $"_{staticRecord.Model.ColorRemappingIndex}";
+                    if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {staticRecord.FormKey} Static has a Color Remapping Index of {staticRecord.Model.ColorRemappingIndex}.");
                 }
 
-
-                //Add lod meshes for moveable statics... this might be hard lol
-                Console.WriteLine("Adding LOD for Moveable Statics...");
-
-                IDictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey> movableStaticLod = new Dictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey>();
-                IDictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey> movableStaticLodMaterialSwaps = new Dictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey>();
-
-                foreach (var moveableStaticRecord in state.LoadOrder.PriorityOrder.MovableStatic().WinningOverrides())
+                // Get file names of possible lod meshes based off the filename (e.g. meshes\somefolder\somemodel.nif would match to meshes\lod\somefolder\somemodel_lod_0.nif).
+                switch (baseFolder)
                 {
-                    // Skip null statics.
-                    if (moveableStaticRecord is null || moveableStaticRecord.Model is null || moveableStaticRecord.Model.File is null) continue;
-
-                    // Split model file name path to see if it is from a dlc.
-                    string baseFolder = moveableStaticRecord.Model.File.Split(Path.DirectorySeparatorChar)[0].ToLower();
-
-                    string possibleLOD4Mesh;
-                    string possibleLOD8Mesh;
-                    string possibleLOD16Mesh;
-                    string possibleLOD32Mesh;
-                    string[] assignedlodMeshes = { "", "", "", "" };
-                    bool hasLodMeshes = false;
-
-                    string colorRemap = "";
-                    if (moveableStaticRecord.Model.ColorRemappingIndex is not null)
-                    {
-                        colorRemap = $"_{moveableStaticRecord.Model.ColorRemappingIndex}";
-                        if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {moveableStaticRecord.FormKey} Moveable Static has a Color Remapping Index of {moveableStaticRecord.Model.ColorRemappingIndex}.");
-                    }
-
-                    // Get file names of possible lod meshes based off the filename (e.g. meshes\somefolder\somemodel.nif would match to meshes\lod\somefolder\somemodel_lod_0.nif).
-                    switch (baseFolder)
-                    {
-                        case "dlc03":
-                            possibleLOD4Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
-                            possibleLOD8Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
-                            possibleLOD16Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
-                            possibleLOD32Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
-                            break;
-                        case "dlc04":
-                            possibleLOD4Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
-                            possibleLOD8Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
-                            possibleLOD16Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
-                            possibleLOD32Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
-                            break;
-                        default:
-                            possibleLOD4Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_0.nif")}";
-                            possibleLOD8Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_1.nif")}";
-                            possibleLOD16Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_2.nif")}";
-                            possibleLOD32Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_3.nif")}";
-                            break;
-                    }
-
-                    // Check if the possible lod meshes do actually exist. If they do, add them to the list of lod meshes to possibly assign.
-                    if (lod4Meshes.Contains(possibleLOD4Mesh))
-                    {
-                        hasLodMeshes = true;
-                        assignedlodMeshes[0] = possibleLOD4Mesh;
-                    }
-                    if (lod8Meshes.Contains(possibleLOD8Mesh))
-                    {
-                        hasLodMeshes = true;
-                        assignedlodMeshes[1] = possibleLOD8Mesh;
-                    }
-                    if (lod16Meshes.Contains(possibleLOD16Mesh))
-                    {
-                        hasLodMeshes = true;
-                        assignedlodMeshes[2] = possibleLOD16Mesh;
-                    }
-                    if (lod32Meshes.Contains(possibleLOD32Mesh))
-                    {
-                        hasLodMeshes = true;
-                        assignedlodMeshes[3] = possibleLOD32Mesh;
-                    }
-
-                    // Skip moveable statics that don't have any lod meshes
-                    if (!hasLodMeshes) continue;
-
-                    // Add a new fake static record for the moveable static
-                    var fakeStatic = state.PatchMod.Statics.AddNew("FOLIP_" + moveableStaticRecord.EditorID + "_FakeStatic");
-                    fakeStatic.MajorRecordFlagsRaw = (int)Static.MajorFlag.HasDistantLod;
-                    fakeStatic.Model = new Model();
-                    if (moveableStaticRecord.Model.MaterialSwap is not null)
-                        fakeStatic.Model.MaterialSwap.SetTo(moveableStaticRecord.Model.MaterialSwap);
-                    if (moveableStaticRecord.Model.ColorRemappingIndex is not null)
-                        fakeStatic.Model.ColorRemappingIndex = moveableStaticRecord.Model.ColorRemappingIndex;
-                    fakeStatic.ObjectBounds = new ObjectBounds();
-                    if (moveableStaticRecord.ObjectBounds is not null)
-                    {
-                        fakeStatic.ObjectBounds.First = moveableStaticRecord.ObjectBounds.First;
-                        fakeStatic.ObjectBounds.Second = moveableStaticRecord.ObjectBounds.Second;
-                    }
-
-                    // Add the lods to the fake static
-                    for (int i = 0; i < 4; i++)
-                    {
-                        if (assignedlodMeshes[i].Length > 0)
-                        {
-                            var item = new DistantLod()
-                            {
-                                Mesh = assignedlodMeshes[i],
-                                Data = new byte[260 - assignedlodMeshes[i].Length - 1],
-                            };
-                            fakeStatic.DistantLods.Add(item);
-                        }
-                    }
-                    movableStaticLod.Add(moveableStaticRecord.FormKey, fakeStatic.FormKey);
-                    if (moveableStaticRecord.Model.MaterialSwap is not null)
-                        movableStaticLodMaterialSwaps.Add(moveableStaticRecord.FormKey, moveableStaticRecord.Model.MaterialSwap.FormKey);
+                    case "dlc03":
+                        possibleLOD4Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                        possibleLOD8Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                        possibleLOD16Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                        possibleLOD32Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                        possibleLODMesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
+                        break;
+                    case "dlc04":
+                        possibleLOD4Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                        possibleLOD8Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                        possibleLOD16Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                        possibleLOD32Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                        possibleLODMesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
+                        break;
+                    default:
+                        possibleLOD4Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                        possibleLOD8Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                        possibleLOD16Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                        possibleLOD32Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                        possibleLODMesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod.nif")}";
+                        break;
                 }
 
-                // Iterate over placed objects.
-                foreach (var placedObjectGetter in state.LoadOrder.PriorityOrder.OnlyEnabled().PlacedObject().WinningContextOverrides(state.LinkCache))
+                // Check if the possible lod meshes do actually exist. If they do, add them to the list of lod meshes to possibly assign.
+                if (lod4Meshes.Contains(possibleLOD4Mesh))
                 {
-                    if (!movableStaticLod.ContainsKey(placedObjectGetter.Record.Base.FormKey)) continue;
-                    if (!placedObjectGetter.TryGetParentContext<IWorldspace, IWorldspaceGetter>(out var worldspaceContext)) continue;
-                    //placedObjectGetter.TryGetParentContext<ICell, ICellGetter>(out var cellContext);
-                    //bool isItPrecombined = false;
-                    //if (cellContext is not null && cellContext.Record.CombinedMeshReferences is not null && !Enums.HasFlag(placedObjectGetter.Record.MajorRecordFlagsRaw, 256))
-                    //{
-                    //    foreach (var combinedReference in cellContext.Record.CombinedMeshReferences)
-                    //        if (combinedReference.Reference.FormKey == placedObjectGetter.Record.FormKey)
-                    //        {
-                    //            isItPrecombined = true;
-                    //            break;
-                    //        }
-                    //}
-                    //if (!isItPrecombined)
-                    //{
-                    //    var placedObjectOverride = placedObjectGetter.GetOrAddAsOverride(state.PatchMod);
-                    //    placedObjectOverride.MajorRecordFlagsRaw = Enums.SetFlag(placedObjectOverride.MajorRecordFlagsRaw, 256, true);
-                    //}
-                    IPlacedObject copiedPlacedObject = placedObjectGetter.DuplicateIntoAsNewRecord(state.PatchMod);
-                    copiedPlacedObject.Base.SetTo(movableStaticLod[placedObjectGetter.Record.Base.FormKey]);
+                    hasLodMeshes = true;
+                    assignedlodMeshes[0] = possibleLOD4Mesh;
+                }
+                else if (lodMeshes.Contains(possibleLODMesh))
+                {
+                    hasLodMeshes = true;
+                    assignedlodMeshes[0] = possibleLODMesh;
+                }
+                if (lod8Meshes.Contains(possibleLOD8Mesh))
+                {
+                    hasLodMeshes = true;
+                    assignedlodMeshes[1] = possibleLOD8Mesh;
+                }
+                if (lod16Meshes.Contains(possibleLOD16Mesh))
+                {
+                    hasLodMeshes = true;
+                    assignedlodMeshes[2] = possibleLOD16Mesh;
+                }
+                if (lod32Meshes.Contains(possibleLOD32Mesh))
+                {
+                    hasLodMeshes = true;
+                    assignedlodMeshes[3] = possibleLOD32Mesh;
+                }
+
+                string RuleHasDistantLOD = "true";
+                List<string> RuleLodMeshes = new();
+
+                bool hasLODRules = false;
+                if (LODRules is not null && LODRules.ContainsKey(modelFile))
+                {
+                    RuleHasDistantLOD = LODRules[modelFile]["hasdistantlod"];
+                    RuleLodMeshes.Add(LODRules[modelFile]["lod4"]);
+                    RuleLodMeshes.Add(LODRules[modelFile]["lod8"]);
+                    RuleLodMeshes.Add(LODRules[modelFile]["lod16"]);
+                    RuleLodMeshes.Add(LODRules[modelFile]["lod32"]);
+                    hasLODRules = true;
+                }
+
+                // Skip statics that don't have any lod meshes
+                if (!hasLodMeshes && !hasLODRules) continue;
+
+                // Retrieve any DistantLods meshes currently assigned.
+                List<string> currentLodMeshes = new();
+                foreach (var distantLodList in staticRecord.DistantLods)
+                {
+                    if (distantLodList.Mesh.Length > 0)
+                        currentLodMeshes.Add(distantLodList.Mesh.ToLower());
+                }
+
+                while (currentLodMeshes.Count < 4)
+                    currentLodMeshes.Add("");
+
+                // Checks to see if DistantLods meshes detected are assigned.
+                bool hasDistantLodMeshesChanged = true;
+                for (int i = 0; i < 4; i++)
+                {
+                    if (hasLODRules)
+                    {
+                        assignedlodMeshes[i] = RuleLodMeshes[i];
+                        continue;
+                    }
+
+                    // Is there an assigned lod mesh found?
+                    bool FoundLodMesh = false;
+                    if (assignedlodMeshes[i].Length > 0)
+                        FoundLodMesh = true;
+
+                    // Is there an already existing assigned lod mesh?
+                    bool ExistingLodMesh = false;
+                    if (currentLodMeshes is not null && currentLodMeshes.Count > i)
+                        ExistingLodMesh = true;
+
+                    // If there is no found lod mesh, but one is already assigned, use it.
+                    if (!FoundLodMesh && ExistingLodMesh && currentLodMeshes is not null)
+                        assignedlodMeshes[i] = currentLodMeshes[i];
+                }
+
+                if (currentLodMeshes is not null && assignedlodMeshes.SequenceEqual(currentLodMeshes))
+                    hasDistantLodMeshesChanged = false;
+
+                bool hasDistantLodFlag = Enums.HasFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod);
+
+                // Skip if the static already has the HasDistantLOD flag and its lod meshes hasn't changed.
+                if (hasDistantLodFlag && !hasDistantLodMeshesChanged && (!hasLODRules || hasLODRules && RuleHasDistantLOD == "true")) continue;
+
+                if (!hasDistantLodFlag && hasLODRules && RuleHasDistantLOD =="false") continue;
+
+                // Add the static to the patch
+                var myFavoriteStatic = state.PatchMod.Statics.GetOrAddAsOverride(staticRecord);
+
+                // Set the HasDistantLOD flag.
+                if (RuleHasDistantLOD == "false")
+                    myFavoriteStatic.MajorRecordFlagsRaw = Enums.SetFlag(myFavoriteStatic.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, false);
+                else
+                    myFavoriteStatic.MajorRecordFlagsRaw = Enums.SetFlag(myFavoriteStatic.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, true);
+                    
+                // Optional readout of static with its lod meshes assigned.
+                if (Settings.verboseConsoleLog)
+                    Console.WriteLine($"{myFavoriteStatic.FormKey}     {assignedlodMeshes[0]}     {assignedlodMeshes[1]}     {assignedlodMeshes[2]}     {assignedlodMeshes[3]}");
+                    
+                // Clear assigned DistantLods meshes.
+                myFavoriteStatic.DistantLods.Clear();
+
+                // Assign DistantLods meshes.
+                for (int i = 0; i < 4; i++)
+                {
+                    if (assignedlodMeshes[i].Length > 0)
+                    {
+                        var item = new DistantLod()
+                        {
+                            Mesh = assignedlodMeshes[i],
+                            Data = new byte[260 - assignedlodMeshes[i].Length - 1],
+                        };
+                        myFavoriteStatic.DistantLods.Add(item);
+                    }
                 }
             }
+
+
+            //Add lod meshes for moveable statics... this might be hard lol
+            Console.WriteLine("Adding LOD for Moveable Statics...");
+
+            IDictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey> movableStaticLod = new Dictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey>();
+            IDictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey> movableStaticLodMaterialSwaps = new Dictionary<Mutagen.Bethesda.Plugins.FormKey, Mutagen.Bethesda.Plugins.FormKey>();
+
+            foreach (var moveableStaticRecord in state.LoadOrder.PriorityOrder.MovableStatic().WinningOverrides())
+            {
+                // Skip null statics.
+                if (moveableStaticRecord is null || moveableStaticRecord.Model is null || moveableStaticRecord.Model.File is null) continue;
+
+                // Split model file name path to see if it is from a dlc.
+                string baseFolder = moveableStaticRecord.Model.File.Split(Path.DirectorySeparatorChar)[0].ToLower();
+
+                string possibleLOD4Mesh;
+                string possibleLOD8Mesh;
+                string possibleLOD16Mesh;
+                string possibleLOD32Mesh;
+                string[] assignedlodMeshes = { "", "", "", "" };
+                bool hasLodMeshes = false;
+
+                string colorRemap = "";
+                if (moveableStaticRecord.Model.ColorRemappingIndex is not null)
+                {
+                    colorRemap = $"_{moveableStaticRecord.Model.ColorRemappingIndex}";
+                    if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {moveableStaticRecord.FormKey} Moveable Static has a Color Remapping Index of {moveableStaticRecord.Model.ColorRemappingIndex}.");
+                }
+
+                // Get file names of possible lod meshes based off the filename (e.g. meshes\somefolder\somemodel.nif would match to meshes\lod\somefolder\somemodel_lod_0.nif).
+                switch (baseFolder)
+                {
+                    case "dlc03":
+                        possibleLOD4Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                        possibleLOD8Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                        possibleLOD16Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                        possibleLOD32Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                        break;
+                    case "dlc04":
+                        possibleLOD4Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                        possibleLOD8Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                        possibleLOD16Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                        possibleLOD32Mesh = $"{moveableStaticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                        break;
+                    default:
+                        possibleLOD4Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                        possibleLOD8Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                        possibleLOD16Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                        possibleLOD32Mesh = $"lod\\{moveableStaticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                        break;
+                }
+
+                // Check if the possible lod meshes do actually exist. If they do, add them to the list of lod meshes to possibly assign.
+                if (lod4Meshes.Contains(possibleLOD4Mesh))
+                {
+                    hasLodMeshes = true;
+                    assignedlodMeshes[0] = possibleLOD4Mesh;
+                }
+                if (lod8Meshes.Contains(possibleLOD8Mesh))
+                {
+                    hasLodMeshes = true;
+                    assignedlodMeshes[1] = possibleLOD8Mesh;
+                }
+                if (lod16Meshes.Contains(possibleLOD16Mesh))
+                {
+                    hasLodMeshes = true;
+                    assignedlodMeshes[2] = possibleLOD16Mesh;
+                }
+                if (lod32Meshes.Contains(possibleLOD32Mesh))
+                {
+                    hasLodMeshes = true;
+                    assignedlodMeshes[3] = possibleLOD32Mesh;
+                }
+
+                // Skip moveable statics that don't have any lod meshes
+                if (!hasLodMeshes) continue;
+
+                // Add a new fake static record for the moveable static
+                var fakeStatic = state.PatchMod.Statics.AddNew("FOLIP_" + moveableStaticRecord.EditorID + "_FakeStatic");
+                fakeStatic.MajorRecordFlagsRaw = (int)Static.MajorFlag.HasDistantLod;
+                fakeStatic.Model = new Model();
+                if (moveableStaticRecord.Model.MaterialSwap is not null)
+                    fakeStatic.Model.MaterialSwap.SetTo(moveableStaticRecord.Model.MaterialSwap);
+                if (moveableStaticRecord.Model.ColorRemappingIndex is not null)
+                    fakeStatic.Model.ColorRemappingIndex = moveableStaticRecord.Model.ColorRemappingIndex;
+                fakeStatic.ObjectBounds = new ObjectBounds();
+                if (moveableStaticRecord.ObjectBounds is not null)
+                {
+                    fakeStatic.ObjectBounds.First = moveableStaticRecord.ObjectBounds.First;
+                    fakeStatic.ObjectBounds.Second = moveableStaticRecord.ObjectBounds.Second;
+                }
+
+                // Add the lods to the fake static
+                for (int i = 0; i < 4; i++)
+                {
+                    if (assignedlodMeshes[i].Length > 0)
+                    {
+                        var item = new DistantLod()
+                        {
+                            Mesh = assignedlodMeshes[i],
+                            Data = new byte[260 - assignedlodMeshes[i].Length - 1],
+                        };
+                        fakeStatic.DistantLods.Add(item);
+                    }
+                }
+                movableStaticLod.Add(moveableStaticRecord.FormKey, fakeStatic.FormKey);
+                if (moveableStaticRecord.Model.MaterialSwap is not null)
+                    movableStaticLodMaterialSwaps.Add(moveableStaticRecord.FormKey, moveableStaticRecord.Model.MaterialSwap.FormKey);
+            }
+
+            // Iterate over placed objects.
+            foreach (var placedObjectGetter in state.LoadOrder.PriorityOrder.OnlyEnabled().PlacedObject().WinningContextOverrides(state.LinkCache))
+            {
+                if (!movableStaticLod.ContainsKey(placedObjectGetter.Record.Base.FormKey)) continue;
+                if (!placedObjectGetter.TryGetParentContext<IWorldspace, IWorldspaceGetter>(out var worldspaceContext)) continue;
+                //placedObjectGetter.TryGetParentContext<ICell, ICellGetter>(out var cellContext);
+                //bool isItPrecombined = false;
+                //if (cellContext is not null && cellContext.Record.CombinedMeshReferences is not null && !Enums.HasFlag(placedObjectGetter.Record.MajorRecordFlagsRaw, 256))
+                //{
+                //    foreach (var combinedReference in cellContext.Record.CombinedMeshReferences)
+                //        if (combinedReference.Reference.FormKey == placedObjectGetter.Record.FormKey)
+                //        {
+                //            isItPrecombined = true;
+                //            break;
+                //        }
+                //}
+                //if (!isItPrecombined)
+                //{
+                //    var placedObjectOverride = placedObjectGetter.GetOrAddAsOverride(state.PatchMod);
+                //    placedObjectOverride.MajorRecordFlagsRaw = Enums.SetFlag(placedObjectOverride.MajorRecordFlagsRaw, 256, true);
+                //}
+                IPlacedObject copiedPlacedObject = placedObjectGetter.DuplicateIntoAsNewRecord(state.PatchMod);
+                copiedPlacedObject.Base.SetTo(movableStaticLod[placedObjectGetter.Record.Base.FormKey]);
+            }
+            
 
             // Fix bugs in mods
 
