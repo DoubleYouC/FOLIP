@@ -3,7 +3,7 @@ using Mutagen.Bethesda.Synthesis;
 using Mutagen.Bethesda.Fallout4;
 using Noggog;
 using Mutagen.Bethesda.Plugins;
-
+using System.Text.Json;
 
 namespace FOLIP
 {
@@ -22,6 +22,7 @@ namespace FOLIP
                 .SetTypicalOpen(GameRelease.Fallout4, "FOLIP-Dynamic.esp")
                 .Run(args);
         }
+
         public static void RunPatch(IPatcherState<IFallout4Mod, IFallout4ModGetter> state)
         {
             Console.WriteLine("FOLIP START");
@@ -57,6 +58,9 @@ namespace FOLIP
 
             List<string> missingMaterials = new();
 
+            string jsonString = File.ReadAllText($"{state.DataFolderPath}\\FOLIP\\MaterialSwapMap.json");
+            var materialSwapMap = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(jsonString);
+
             foreach (var materialSwap in state.LoadOrder.PriorityOrder.MaterialSwap().WinningOverrides())
             {
                 List<string> lodSubstitutionsOriginal = new();
@@ -79,8 +83,20 @@ namespace FOLIP
                     if (theOriginalMaterial is null) continue;
                     theOriginalMaterial = theOriginalMaterial.ToLower();
 
-                    // Skip if the original material does not have a direct lod material.
-                    if (!lodMaterialFiles.Contains(theOriginalMaterial)) continue;
+                    bool hasDirectLODOriginalMaterial = false;
+                    if (lodMaterialFiles.Contains(theOriginalMaterial))
+                        hasDirectLODOriginalMaterial = true;
+
+                    bool hasRuleLODOriginalMaterial = false;
+                    List<string> ruleLODOriginalMaterials = new();
+                    if (materialSwapMap is not null && materialSwapMap.ContainsKey(theOriginalMaterial))
+                    {
+                        ruleLODOriginalMaterials = materialSwapMap[theOriginalMaterial];
+                        hasRuleLODOriginalMaterial = true;
+                    }
+
+                    // Skip if no lod materials for the original material
+                    if (!hasDirectLODOriginalMaterial && !hasRuleLODOriginalMaterial) continue;
 
                     var theReplacementMaterial = substitution.ReplacementMaterial;
                     if (theReplacementMaterial is null) continue;
@@ -97,8 +113,19 @@ namespace FOLIP
                         if (Settings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {materialSwap.FormKey} Material Swap has a Color Remapping Index of {substitution.ColorRemappingIndex}.");
                     }
 
-                    // Skip if the replacement material does not have a direct lod material.
-                    if (!lodMaterialFiles.Contains(theReplacementMaterial))
+                    bool hasDirectLODReplacementMaterial = false;
+                    if (lodMaterialFiles.Contains(theReplacementMaterial))
+                        hasDirectLODReplacementMaterial = true;
+
+                    bool hasRuleLODReplacementMaterial = false;
+                    string ruleLODReplacementMaterial = "";
+                    if (materialSwapMap is not null && materialSwapMap.ContainsKey(theReplacementMaterial))
+                    {
+                        ruleLODReplacementMaterial = materialSwapMap[theReplacementMaterial][0];
+                        hasRuleLODReplacementMaterial = true;
+                    }
+
+                    if (!hasDirectLODReplacementMaterial && !hasRuleLODReplacementMaterial)
                     {
                         if (substitution.ColorRemappingIndex is not null)
                             if (Settings.verboseConsoleLog) Console.WriteLine($"Missing {theReplacementMaterial}");
@@ -110,29 +137,57 @@ namespace FOLIP
                     // Turns theOriginalMaterial into the path of the matching lod material. 
                     theOriginalMaterial = theOriginalMaterial.Split(Path.DirectorySeparatorChar)[0] switch
                     {
-                        "dlc04" => theOriginalMaterial.Replace("dlc04\\", "DLC04\\LOD\\"),
-                        "dlc03" => theOriginalMaterial.Replace("dlc03\\", "DLC03\\LOD\\"),
-                        _ => $"LOD\\{theOriginalMaterial}",
+                        "dlc04" => theOriginalMaterial.Replace("dlc04\\", "dlc04\\lod\\"),
+                        "dlc03" => theOriginalMaterial.Replace("dlc03\\", "dlc03\\lod\\"),
+                        _ => $"lod\\{theOriginalMaterial}",
                     };
 
-                    // Skip if an already existing material swap exists for the lod material.
-                    if (existingSubstitutions.Contains(theOriginalMaterial.ToLower())) continue;
+                    bool hasExistingDirectLODSubstitution = false;
+                    if (existingSubstitutions.Contains(theOriginalMaterial.ToLower()))
+                        hasExistingDirectLODSubstitution = true;
 
                     // Turns theReplacementMaterial into the path of the matching lod material.
                     theReplacementMaterial = theReplacementMaterial.Split(Path.DirectorySeparatorChar)[0] switch
                     {
-                        "dlc04" => theReplacementMaterial.Replace("dlc04\\", "DLC04\\LOD\\"),
-                        "dlc03" => theReplacementMaterial.Replace("dlc03\\", "DLC03\\LOD\\"),
-                        _ => $"LOD\\{theReplacementMaterial}",
+                        "dlc04" => theReplacementMaterial.Replace("dlc04\\", "dlc04\\lod\\"),
+                        "dlc03" => theReplacementMaterial.Replace("dlc03\\", "dlc03\\lod\\"),
+                        _ => $"lod\\{theReplacementMaterial}",
                     };
 
-                    //If the material swap defines replacing with the exact same material, then skip. Yes, Bethesda has put some swaps that literally say to swap with the exact same material for no reason.
-                    if (theOriginalMaterial == theReplacementMaterial) continue;
+                    bool originalIsReplacement = false;
+                    if (theOriginalMaterial == theReplacementMaterial)
+                        originalIsReplacement = true;
 
-                    //If the original material and replacement material both have direct lod materials, add them to the lists.
-                    lodSubstitutionsOriginal.Add(theOriginalMaterial);
-                    lodSubstitutionsReplacement.Add(theReplacementMaterial);
-                    n += 1;
+                    //Adding necessary material swaps to the list
+                    if (!hasExistingDirectLODSubstitution && !originalIsReplacement && hasDirectLODReplacementMaterial && hasDirectLODOriginalMaterial && !lodSubstitutionsOriginal.Contains(theOriginalMaterial))
+                    {
+                        lodSubstitutionsOriginal.Add(theOriginalMaterial);
+                        lodSubstitutionsReplacement.Add(theReplacementMaterial);
+                        n += 1;
+                    }
+                    if (materialSwapMap is not null && hasRuleLODOriginalMaterial)
+                    {
+                        if (hasRuleLODReplacementMaterial)
+                        {
+                            foreach (var eachLODOriginalMaterial in ruleLODOriginalMaterials)
+                            {
+                                if (existingSubstitutions.Contains(eachLODOriginalMaterial) || lodSubstitutionsOriginal.Contains(eachLODOriginalMaterial)) continue;
+                                lodSubstitutionsOriginal.Add(eachLODOriginalMaterial);
+                                lodSubstitutionsReplacement.Add(ruleLODReplacementMaterial);
+                                n += 1;
+                            }
+                        }
+                        else if (hasDirectLODReplacementMaterial)
+                        {
+                            foreach (var eachLODOriginalMaterial in ruleLODOriginalMaterials)
+                            {
+                                if (existingSubstitutions.Contains(eachLODOriginalMaterial) || lodSubstitutionsOriginal.Contains(eachLODOriginalMaterial)) continue;
+                                lodSubstitutionsOriginal.Add(eachLODOriginalMaterial);
+                                lodSubstitutionsReplacement.Add(theReplacementMaterial);
+                                n += 1;
+                            }
+                        }
+                    }
                 }
 
                 // Skip if no lod material swaps were added.
@@ -166,13 +221,18 @@ namespace FOLIP
                 // Add lod meshes to static records
                 Console.WriteLine("Assigning LOD models...");
 
+                string LODRulesJson = File.ReadAllText($"{state.DataFolderPath}\\FOLIP\\LODRules.json");
+                var LODRules = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(LODRulesJson);
+
                 foreach (var staticRecord in state.LoadOrder.PriorityOrder.Static().WinningOverrides())
                 {
                     // Skip null statics.
                     if (staticRecord is null || staticRecord.Model is null || staticRecord.Model.File is null) continue;
-                    
+
+                    string modelFile = staticRecord.Model.File.ToLower();
+
                     // Split model file name path to see if it is from a dlc.
-                    string baseFolder = staticRecord.Model.File.Split(Path.DirectorySeparatorChar)[0].ToLower();
+                    string baseFolder = modelFile.Split(Path.DirectorySeparatorChar)[0];
 
                     string possibleLOD4Mesh;
                     string possibleLOD8Mesh;
@@ -193,25 +253,25 @@ namespace FOLIP
                     switch (baseFolder)
                     {
                         case "dlc03":
-                            possibleLOD4Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
-                            possibleLOD8Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
-                            possibleLOD16Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
-                            possibleLOD32Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
-                            possibleLODMesh = $"{staticRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
+                            possibleLOD4Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                            possibleLODMesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
                             break;
                         case "dlc04":
-                            possibleLOD4Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
-                            possibleLOD8Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
-                            possibleLOD16Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
-                            possibleLOD32Mesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
-                            possibleLODMesh = $"{staticRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
+                            possibleLOD4Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                            possibleLODMesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
                             break;
                         default:
-                            possibleLOD4Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_0.nif")}";
-                            possibleLOD8Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_1.nif")}";
-                            possibleLOD16Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_2.nif")}";
-                            possibleLOD32Mesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_3.nif")}";
-                            possibleLODMesh = $"lod\\{staticRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod.nif")}";
+                            possibleLOD4Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                            possibleLODMesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod.nif")}";
                             break;
                     }
 
@@ -242,8 +302,22 @@ namespace FOLIP
                         assignedlodMeshes[3] = possibleLOD32Mesh;
                     }
 
+                    string RuleHasDistantLOD = "true";
+                    List<string> RuleLodMeshes = new();
+
+                    bool hasLODRules = false;
+                    if (LODRules is not null && LODRules.ContainsKey(modelFile))
+                    {
+                        RuleHasDistantLOD = LODRules[modelFile]["hasdistantlod"];
+                        RuleLodMeshes.Add(LODRules[modelFile]["lod4"]);
+                        RuleLodMeshes.Add(LODRules[modelFile]["lod8"]);
+                        RuleLodMeshes.Add(LODRules[modelFile]["lod16"]);
+                        RuleLodMeshes.Add(LODRules[modelFile]["lod32"]);
+                        hasLODRules = true;
+                    }
+
                     // Skip statics that don't have any lod meshes
-                    if (!hasLodMeshes) continue;
+                    if (!hasLodMeshes && !hasLODRules) continue;
 
                     // Retrieve any DistantLods meshes currently assigned.
                     List<string> currentLodMeshes = new();
@@ -260,7 +334,13 @@ namespace FOLIP
                     bool hasDistantLodMeshesChanged = true;
                     for (int i = 0; i < 4; i++)
                     {
-                        // Is there a assigned lod mesh found?
+                        if (hasLODRules)
+                        {
+                            assignedlodMeshes[i] = RuleLodMeshes[i];
+                            continue;
+                        }
+
+                        // Is there an assigned lod mesh found?
                         bool FoundLodMesh = false;
                         if (assignedlodMeshes[i].Length > 0)
                             FoundLodMesh = true;
@@ -278,15 +358,22 @@ namespace FOLIP
                     if (currentLodMeshes is not null && assignedlodMeshes.SequenceEqual(currentLodMeshes))
                         hasDistantLodMeshesChanged = false;
 
+                    bool hasDistantLodFlag = Enums.HasFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod);
+
                     // Skip if the static already has the HasDistantLOD flag and its lod meshes hasn't changed.
-                    if (EnumExt.HasFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod) && !hasDistantLodMeshesChanged) continue;
+                    if (hasDistantLodFlag && !hasDistantLodMeshesChanged && (!hasLODRules || hasLODRules && RuleHasDistantLOD == "true")) continue;
+
+                    if (!hasDistantLodFlag && hasLODRules && RuleHasDistantLOD =="false") continue;
 
                     // Add the static to the patch
                     var myFavoriteStatic = state.PatchMod.Statics.GetOrAddAsOverride(staticRecord);
 
                     // Set the HasDistantLOD flag.
-                    myFavoriteStatic.MajorRecordFlagsRaw = EnumExt.SetFlag(myFavoriteStatic.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, true);
-
+                    if (RuleHasDistantLOD == "false")
+                        myFavoriteStatic.MajorRecordFlagsRaw = Enums.SetFlag(myFavoriteStatic.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, false);
+                    else
+                        myFavoriteStatic.MajorRecordFlagsRaw = Enums.SetFlag(myFavoriteStatic.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, true);
+                    
                     // Optional readout of static with its lod meshes assigned.
                     if (Settings.verboseConsoleLog)
                         Console.WriteLine($"{myFavoriteStatic.FormKey}     {assignedlodMeshes[0]}     {assignedlodMeshes[1]}     {assignedlodMeshes[2]}     {assignedlodMeshes[3]}");
@@ -424,6 +511,22 @@ namespace FOLIP
                 {
                     if (!movableStaticLod.ContainsKey(placedObjectGetter.Record.Base.FormKey)) continue;
                     if (!placedObjectGetter.TryGetParentContext<IWorldspace, IWorldspaceGetter>(out var worldspaceContext)) continue;
+                    //placedObjectGetter.TryGetParentContext<ICell, ICellGetter>(out var cellContext);
+                    //bool isItPrecombined = false;
+                    //if (cellContext is not null && cellContext.Record.CombinedMeshReferences is not null && !Enums.HasFlag(placedObjectGetter.Record.MajorRecordFlagsRaw, 256))
+                    //{
+                    //    foreach (var combinedReference in cellContext.Record.CombinedMeshReferences)
+                    //        if (combinedReference.Reference.FormKey == placedObjectGetter.Record.FormKey)
+                    //        {
+                    //            isItPrecombined = true;
+                    //            break;
+                    //        }
+                    //}
+                    //if (!isItPrecombined)
+                    //{
+                    //    var placedObjectOverride = placedObjectGetter.GetOrAddAsOverride(state.PatchMod);
+                    //    placedObjectOverride.MajorRecordFlagsRaw = Enums.SetFlag(placedObjectOverride.MajorRecordFlagsRaw, 256, true);
+                    //}
                     IPlacedObject copiedPlacedObject = placedObjectGetter.DuplicateIntoAsNewRecord(state.PatchMod);
                     copiedPlacedObject.Base.SetTo(movableStaticLod[placedObjectGetter.Record.Base.FormKey]);
                 }
@@ -436,13 +539,13 @@ namespace FOLIP
             {
                 foreach (var staticRecord in AnnexTheCommonwealth.Statics)
                 {
-                    if (!EnumExt.HasFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod)) continue;
+                    if (!Enums.HasFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod)) continue;
 
                     //add it to the patch
                     var myFavoriteStatic = state.PatchMod.Statics.GetOrAddAsOverride(staticRecord);
 
                     //remove flag
-                    myFavoriteStatic.MajorRecordFlagsRaw = EnumExt.SetFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, false);
+                    myFavoriteStatic.MajorRecordFlagsRaw = Enums.SetFlag(staticRecord.MajorRecordFlagsRaw, (int)Static.MajorFlag.HasDistantLod, false);
                     Console.WriteLine($"Removed HasDistantLOD flag from {staticRecord.FormKey}.");
                 }
             }
