@@ -5,6 +5,20 @@ namespace FOLIP
 	internal class LodSettings
 	{
 		[SynthesisOrder]
+		[SynthesisSettingName("Moveable Statics")]
+		[SynthesisTooltip("Enable LOD for moveable static references.")]
+		public bool moveableStatics = true;
+
+
+		[SynthesisOrder]
+		[SynthesisSettingName("Dev Settings")]
+		[SynthesisTooltip("Convenience settings for development purposes.")]
+		public DevSettings devSettings = new();
+	}
+
+	internal class DevSettings
+    {
+		[SynthesisOrder]
 		[SynthesisSettingName("Verbose")]
 		[SynthesisTooltip("Enable verbose messages (typically only for mod author knowledge).")]
 		public bool verboseConsoleLog = false;
