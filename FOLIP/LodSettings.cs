@@ -7,7 +7,7 @@ namespace FOLIP
 		[SynthesisOrder]
 		[SynthesisSettingName("Moveable Statics")]
 		[SynthesisTooltip("Enable LOD for moveable static references.")]
-		public bool moveableStatics = true;
+		public bool moveableStatics = false;
 
 
 		[SynthesisOrder]
