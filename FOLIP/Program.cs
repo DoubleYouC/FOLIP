@@ -556,12 +556,14 @@ namespace FOLIP
 
             if (Settings.moveableStatics)
             {
-                // Iterate over placed objects.
-                foreach (var placedObjectGetter in state.LoadOrder.PriorityOrder.PlacedObject().WinningContextOverrides(state.LinkCache))
+                //Iterate over placed objects.
+
+                foreach (var placedObjectGetter in state.LoadOrder.PriorityOrder.OnlyEnabled().PlacedObject().WinningContextOverrides(state.LinkCache))
                 {
                     if (!movableStaticLod.ContainsKey(placedObjectGetter.Record.Base.FormKey)) continue;
                     if (!placedObjectGetter.TryGetParentContext<IWorldspace, IWorldspaceGetter>(out var worldspaceContext)) continue;
                     //placedObjectGetter.TryGetParentContext<ICell, ICellGetter>(out var cellContext);
+                    //if (cellContext is null) continue;
                     //bool isItPrecombined = false;
                     //if (cellContext is not null && cellContext.Record.CombinedMeshReferences is not null && !Enums.HasFlag(placedObjectGetter.Record.MajorRecordFlagsRaw, 256))
                     //{
@@ -577,6 +579,11 @@ namespace FOLIP
                     //    var placedObjectOverride = placedObjectGetter.GetOrAddAsOverride(state.PatchMod);
                     //    placedObjectOverride.MajorRecordFlagsRaw = Enums.SetFlag(placedObjectOverride.MajorRecordFlagsRaw, 256, true);
                     //}
+                    //var worldspace = worldspaceContext.Record.FormKey;
+                    //var cell = cellContext.Record.FormKey;
+                    //var position = placedObjectGetter.Record.Position;
+                    //var rotation = placedObjectGetter.Record.Rotation;
+                    //var baseObject = movableStaticLod[placedObjectGetter.Record.Base.FormKey];
                     IPlacedObject copiedPlacedObject = placedObjectGetter.DuplicateIntoAsNewRecord(state.PatchMod);
                     copiedPlacedObject.Base.SetTo(movableStaticLod[placedObjectGetter.Record.Base.FormKey]);
                 }
