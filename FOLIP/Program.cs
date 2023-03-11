@@ -556,6 +556,113 @@ namespace FOLIP
 
             if (Settings.moveableStatics)
             {
+                //furniture
+                foreach (var furnitureRecord in state.LoadOrder.PriorityOrder.Furniture().WinningOverrides())
+                {
+                    // Skip null statics.
+                    if (furnitureRecord is null || furnitureRecord.Model is null || furnitureRecord.Model.File is null) continue;
+
+                    // Split model file name path to see if it is from a dlc.
+                    string baseFolder = furnitureRecord.Model.File.Split(Path.DirectorySeparatorChar)[0].ToLower();
+
+                    string possibleLOD4Mesh;
+                    string possibleLOD8Mesh;
+                    string possibleLOD16Mesh;
+                    string possibleLOD32Mesh;
+                    string[] assignedlodMeshes = { "", "", "", "" };
+                    bool hasLodMeshes = false;
+
+                    string colorRemap = "";
+                    if (furnitureRecord.Model.ColorRemappingIndex is not null)
+                    {
+                        colorRemap = $"_{furnitureRecord.Model.ColorRemappingIndex}";
+                        if (Settings.devSettings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {furnitureRecord.FormKey} Moveable Static has a Color Remapping Index of {furnitureRecord.Model.ColorRemappingIndex}.");
+                    }
+
+                    // Get file names of possible lod meshes based off the filename (e.g. meshes\somefolder\somemodel.nif would match to meshes\lod\somefolder\somemodel_lod_0.nif).
+                    switch (baseFolder)
+                    {
+                        case "dlc03":
+                            possibleLOD4Mesh = $"{furnitureRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"{furnitureRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"{furnitureRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"{furnitureRecord.Model.File.ToLower().Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                            break;
+                        case "dlc04":
+                            possibleLOD4Mesh = $"{furnitureRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"{furnitureRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"{furnitureRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"{furnitureRecord.Model.File.ToLower().Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                            break;
+                        default:
+                            possibleLOD4Mesh = $"lod\\{furnitureRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+                            possibleLOD8Mesh = $"lod\\{furnitureRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+                            possibleLOD16Mesh = $"lod\\{furnitureRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+                            possibleLOD32Mesh = $"lod\\{furnitureRecord.Model.File.ToLower().Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+                            break;
+                    }
+
+                    // Check if the possible lod meshes do actually exist. If they do, add them to the list of lod meshes to possibly assign.
+                    if (lod4Meshes.Contains(possibleLOD4Mesh))
+                    {
+                        hasLodMeshes = true;
+                        assignedlodMeshes[0] = possibleLOD4Mesh;
+                    }
+                    if (lod8Meshes.Contains(possibleLOD8Mesh))
+                    {
+                        hasLodMeshes = true;
+                        assignedlodMeshes[1] = possibleLOD8Mesh;
+                    }
+                    if (lod16Meshes.Contains(possibleLOD16Mesh))
+                    {
+                        hasLodMeshes = true;
+                        assignedlodMeshes[2] = possibleLOD16Mesh;
+                    }
+                    if (lod32Meshes.Contains(possibleLOD32Mesh))
+                    {
+                        hasLodMeshes = true;
+                        assignedlodMeshes[3] = possibleLOD32Mesh;
+                    }
+
+                    // Skip moveable statics that don't have any lod meshes
+                    if (!hasLodMeshes) continue;
+
+                    // Add a new fake static record for the moveable static
+                    var fakeStatic = state.PatchMod.Statics.AddNew("FOLIP_" + furnitureRecord.EditorID + "_FakeStatic");
+                    fakeStatic.MajorRecordFlagsRaw = (int)Static.MajorFlag.HasDistantLod;
+                    fakeStatic.Model = new Model();
+                    if (furnitureRecord.Model.MaterialSwap is not null)
+                        fakeStatic.Model.MaterialSwap.SetTo(furnitureRecord.Model.MaterialSwap);
+                    if (furnitureRecord.Model.ColorRemappingIndex is not null)
+                        fakeStatic.Model.ColorRemappingIndex = furnitureRecord.Model.ColorRemappingIndex;
+                    fakeStatic.ObjectBounds = new ObjectBounds();
+                    if (furnitureRecord.ObjectBounds is not null)
+                    {
+                        fakeStatic.ObjectBounds.First = furnitureRecord.ObjectBounds.First;
+                        fakeStatic.ObjectBounds.Second = furnitureRecord.ObjectBounds.Second;
+                    }
+
+                    // Add the lods to the fake static
+                    for (int i = 0; i < 4; i++)
+                    {
+                        if (assignedlodMeshes[i].Length > 0)
+                        {
+                            var item = new DistantLod()
+                            {
+                                Mesh = assignedlodMeshes[i],
+                                Data = new byte[260 - assignedlodMeshes[i].Length - 1],
+                            };
+                            fakeStatic.DistantLods.Add(item);
+                        }
+                    }
+                    movableStaticLod.Add(furnitureRecord.FormKey, fakeStatic.FormKey);
+                    if (furnitureRecord.Model.MaterialSwap is not null)
+                        movableStaticLodMaterialSwaps.Add(furnitureRecord.FormKey, furnitureRecord.Model.MaterialSwap.FormKey);
+                }
+            }
+
+            if (Settings.moveableStatics)
+            {
                 //Iterate over placed objects.
 
                 foreach (var placedObjectGetter in state.LoadOrder.PriorityOrder.OnlyEnabled().PlacedObject().WinningContextOverrides(state.LinkCache))
