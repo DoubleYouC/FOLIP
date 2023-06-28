@@ -4,6 +4,7 @@ using Mutagen.Bethesda.Fallout4;
 using Noggog;
 using Mutagen.Bethesda.Plugins;
 using System.Text.Json;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace FOLIP
 {
@@ -337,6 +338,11 @@ namespace FOLIP
                     hasLodMeshes = true;
                     assignedlodMeshes[1] = possibleLOD8Mesh;
                 }
+                else if (Settings.forceLOD8 && assignedlodMeshes[0].Length > 0)
+                {
+                    hasLodMeshes = true;
+                    assignedlodMeshes[1] = assignedlodMeshes[0];
+                }
                 if (lod16Meshes.Contains(possibleLOD16Mesh))
                 {
                     hasLodMeshes = true;
@@ -356,7 +362,10 @@ namespace FOLIP
                 {
                     RuleHasDistantLOD = LODRules[modelFile]["hasdistantlod"];
                     RuleLodMeshes.Add(LODRules[modelFile]["level0"]);
-                    RuleLodMeshes.Add(LODRules[modelFile]["level1"]);
+                    if (Settings.forceLOD8 && LODRules[modelFile]["level1"].Length < 1)
+                        RuleLodMeshes.Add(LODRules[modelFile]["level0"]);
+                    else
+                        RuleLodMeshes.Add(LODRules[modelFile]["level1"]);
                     RuleLodMeshes.Add(LODRules[modelFile]["level2"]);
                     RuleLodMeshes.Add(LODRules[modelFile]["level3"]);
                     hasLODRules = true;
@@ -506,6 +515,11 @@ namespace FOLIP
                         hasLodMeshes = true;
                         assignedlodMeshes[1] = possibleLOD8Mesh;
                     }
+                    else if (Settings.forceLOD8 && assignedlodMeshes[0].Length > 0)
+                    {
+                        hasLodMeshes = true;
+                        assignedlodMeshes[1] = assignedlodMeshes[0];
+                    }
                     if (lod16Meshes.Contains(possibleLOD16Mesh))
                     {
                         hasLodMeshes = true;
@@ -612,6 +626,11 @@ namespace FOLIP
                     {
                         hasLodMeshes = true;
                         assignedlodMeshes[1] = possibleLOD8Mesh;
+                    }
+                    else if (Settings.forceLOD8 && assignedlodMeshes[0].Length > 0)
+                    {
+                        hasLodMeshes = true;
+                        assignedlodMeshes[1] = assignedlodMeshes[0];
                     }
                     if (lod16Meshes.Contains(possibleLOD16Mesh))
                     {

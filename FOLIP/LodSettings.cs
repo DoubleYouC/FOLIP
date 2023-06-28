@@ -9,8 +9,13 @@ namespace FOLIP
 		[SynthesisTooltip("Enable LOD for moveable static references.")]
 		public bool moveableStatics = false;
 
+        [SynthesisOrder]
+        [SynthesisSettingName("Force LOD8")]
+        [SynthesisTooltip("Forces LOD4 to LOD8 where missing.")]
+        public bool forceLOD8 = false;
 
-		[SynthesisOrder]
+
+        [SynthesisOrder]
 		[SynthesisSettingName("Dev Settings")]
 		[SynthesisTooltip("Convenience settings for development purposes.")]
 		public DevSettings devSettings = new();
