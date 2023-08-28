@@ -4,7 +4,6 @@ using Mutagen.Bethesda.Fallout4;
 using Noggog;
 using Mutagen.Bethesda.Plugins;
 using System.Text.Json;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace FOLIP
 {
@@ -25,28 +24,103 @@ namespace FOLIP
                 .Run(args);
         }
 
-//        public static void CheckRunnability(IRunnabilityState state)
-//        {
-//            if (!File.Exists($"{state.DataFolderPath}\\FOLIP\\FOLIP - New LODs - MaterialSwapMap.json"))
-//            {
-//                Console.WriteLine(@"****************************************************************************************************************************************************************
+        //private static bool LodExists(string modelFile, string colorRemap, Dictionary<string, List<string>> lodMeshLevels, Dictionary<string, Dictionary<string, string>> LODRules)
+        //{
+        //    // Split model file name path to see if it is from a dlc.
+        //    string baseFolder = modelFile.Split(Path.DirectorySeparatorChar)[0];
 
-//Please update the FOLIP mod (not this patcher) to the latest version! Missing required file FOLIP\FOLIP - New LODs - MaterialSwapMap.json.
+        //    string possibleLOD4Mesh;
+        //    string possibleLOD8Mesh;
+        //    string possibleLOD16Mesh;
+        //    string possibleLOD32Mesh;
+        //    string possibleLODMesh;
+        //    string[] assignedlodMeshes = { "", "", "", "" };
+        //    bool hasLodMeshes = false;
 
-//****************************************************************************************************************************************************************");
-//                throw new TaskCanceledException("Please update the FOLIP mod (not this patcher) to the latest version! Missing required file FOLIP\\FOLIP - New LODs - MaterialSwapMap.json.");
-//            }
-//            if (!File.Exists($"{state.DataFolderPath}\\FOLIP\\FOLIP - New LODs - LODRules.json"))
-//            {
-//                Console.WriteLine(@"****************************************************************************************************************************************************************
+        //    // Get file names of possible lod meshes based off the filename (e.g. meshes\somefolder\somemodel.nif would match to meshes\lod\somefolder\somemodel_lod_0.nif).
+        //    switch (baseFolder)
+        //    {
+        //        case "dlc03":
+        //            possibleLOD4Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+        //            possibleLOD8Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+        //            possibleLOD16Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+        //            possibleLOD32Mesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+        //            possibleLODMesh = $"{modelFile.Replace("dlc03\\", "dlc03\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
+        //            break;
+        //        case "dlc04":
+        //            possibleLOD4Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+        //            possibleLOD8Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+        //            possibleLOD16Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+        //            possibleLOD32Mesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+        //            possibleLODMesh = $"{modelFile.Replace("dlc04\\", "dlc04\\lod\\").Replace(".nif", $"{colorRemap}_lod.nif")}";
+        //            break;
+        //        default:
+        //            possibleLOD4Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_0.nif")}";
+        //            possibleLOD8Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_1.nif")}";
+        //            possibleLOD16Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_2.nif")}";
+        //            possibleLOD32Mesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod_3.nif")}";
+        //            possibleLODMesh = $"lod\\{modelFile.Replace(".nif", $"{colorRemap}_lod.nif")}";
+        //            break;
+        //    }
 
-//Please update the FOLIP mod (not this patcher) to the latest version! Missing required file FOLIP\FOLIP - New LODs - LODRules.json.
+        //    // Check if the possible lod meshes do actually exist. If they do, add them to the list of lod meshes to possibly assign.
+        //    if (lodMeshLevels["lod4Meshes"].Contains(possibleLOD4Mesh))
+        //    {
+        //        hasLodMeshes = true;
+        //        assignedlodMeshes[0] = possibleLOD4Mesh;
+        //    }
+        //    else if (lodMeshLevels["lodMeshes"].Contains(possibleLODMesh))
+        //    {
+        //        hasLodMeshes = true;
+        //        assignedlodMeshes[0] = possibleLODMesh;
+        //    }
+        //    if (lodMeshLevels["lod8Meshes"].Contains(possibleLOD8Mesh))
+        //    {
+        //        hasLodMeshes = true;
+        //        assignedlodMeshes[1] = possibleLOD8Mesh;
+        //    }
+        //    else if (Settings.forceLOD8 && assignedlodMeshes[0].Length > 0)
+        //    {
+        //        hasLodMeshes = true;
+        //        assignedlodMeshes[1] = assignedlodMeshes[0];
+        //    }
+        //    if (lodMeshLevels["lod16Meshes"].Contains(possibleLOD16Mesh))
+        //    {
+        //        hasLodMeshes = true;
+        //        assignedlodMeshes[2] = possibleLOD16Mesh;
+        //    }
+        //    if (lodMeshLevels["lod32Meshes"].Contains(possibleLOD32Mesh))
+        //    {
+        //        hasLodMeshes = true;
+        //        assignedlodMeshes[3] = possibleLOD32Mesh;
+        //    }
 
-//****************************************************************************************************************************************************************");
-//                throw new TaskCanceledException("Please update the FOLIP mod (not this patcher) to the latest version! Missing required file FOLIP\\FOLIP - New LODs - LODRules.json.");
-//            }
-//        }
+        //    string RuleHasDistantLOD = "true";
+        //    List<string> RuleLodMeshes = new();
 
+        //    bool hasLODRules = false;
+        //    if (LODRules is not null && LODRules.ContainsKey(modelFile))
+        //    {
+        //        RuleHasDistantLOD = LODRules[modelFile]["hasdistantlod"];
+        //        RuleLodMeshes.Add(LODRules[modelFile]["level0"]);
+        //        if (Settings.forceLOD8 && LODRules[modelFile]["level1"].Length < 1)
+        //            RuleLodMeshes.Add(LODRules[modelFile]["level0"]);
+        //        else
+        //            RuleLodMeshes.Add(LODRules[modelFile]["level1"]);
+        //        RuleLodMeshes.Add(LODRules[modelFile]["level2"]);
+        //        RuleLodMeshes.Add(LODRules[modelFile]["level3"]);
+        //        hasLODRules = true;
+        //    }
+
+        //    //things to return
+        //    //assignedlodMeshes
+        //    //hasLodMeshes
+        //    //RuleHasDistantLOD
+        //    //RuleLodMeshes
+        //    //hasLODRules
+
+        //    return true;
+        //}
         public static void RunPatch(IPatcherState<IFallout4Mod, IFallout4ModGetter> state)
         {
             Console.WriteLine("FOLIP START");
@@ -62,16 +136,14 @@ namespace FOLIP
                 {
                     string jsonModString = File.ReadAllText($"{state.DataFolderPath}\\FOLIP\\{pluginName} - MaterialSwapMap.json");
                     var modMaterialSwapMap = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(jsonModString);
-                    if (modMaterialSwapMap is not null)
-                        modMaterialSwapMap.ToList().ForEach(x => materialSwapMap[x.Key] = x.Value);
+                    modMaterialSwapMap?.ToList().ForEach(x => materialSwapMap[x.Key] = x.Value);
                     Console.WriteLine($"Using {pluginName} - MaterialSwapMap.json");
                 }
                 if (File.Exists($"{state.DataFolderPath}\\FOLIP\\{pluginName} - LODRules.json"))
                 {
                     string LODRulesJson = File.ReadAllText($"{state.DataFolderPath}\\FOLIP\\{pluginName} - LODRules.json");
                     var modLODRules = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(LODRulesJson);
-                    if (modLODRules is not null)
-                        modLODRules.ToList().ForEach(x => LODRules[x.Key] = x.Value);
+                    modLODRules?.ToList().ForEach(x => LODRules[x.Key] = x.Value);
                     Console.WriteLine($"Using {pluginName} - LODRules.json");
                 }
             }
@@ -80,8 +152,7 @@ namespace FOLIP
             {
                 string LODRulesJson = File.ReadAllText($"{state.DataFolderPath}\\FOLIP\\UserRules.json");
                 var userLODRules = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(LODRulesJson);
-                if (userLODRules is not null)
-                    userLODRules.ToList().ForEach(x => LODRules[x.Key] = x.Value);
+                userLODRules?.ToList().ForEach(x => LODRules[x.Key] = x.Value);
                 Console.WriteLine($"Using UserRules.json");
             }
 
@@ -108,6 +179,15 @@ namespace FOLIP
             lod32Meshes = GameAssets.Files(lodMeshesFileLocations, "*lod_3.nif", patternReplaceListMeshes);
             lodMeshes = GameAssets.Files(lodMeshesFileLocations, "*lod.nif", patternReplaceListMeshes);
 
+            Dictionary<string, List<string>> lodMeshLevels = new()
+            {
+                { "lod4Meshes", GameAssets.Files(lodMeshesFileLocations, "*lod_0.nif", patternReplaceListMeshes) },
+                { "lod8Meshes", GameAssets.Files(lodMeshesFileLocations, "*lod_1.nif", patternReplaceListMeshes) },
+                { "lod16Meshes", GameAssets.Files(lodMeshesFileLocations, "*lod_2.nif", patternReplaceListMeshes) },
+                { "lod32Meshes", GameAssets.Files(lodMeshesFileLocations, "*lod_3.nif", patternReplaceListMeshes) },
+                { "lodMeshes", GameAssets.Files(lodMeshesFileLocations, "*lod.nif", patternReplaceListMeshes) }
+            };
+
             // Handle Material Swaps.
             Console.WriteLine("Adding LOD material swaps...");
 
@@ -125,8 +205,7 @@ namespace FOLIP
                 {
                     var existingOriginalSubstitution = substitution.OriginalMaterial;
                     if (existingOriginalSubstitution is null) continue;
-                    existingOriginalSubstitution = existingOriginalSubstitution.ToLower();
-                    existingSubstitutions.Add(existingOriginalSubstitution);
+                    existingSubstitutions.Add(existingOriginalSubstitution.ToLower());
                 }
 
                 foreach (var substitution in materialSwap.Substitutions)
@@ -277,6 +356,12 @@ namespace FOLIP
                 if (staticRecord is null || staticRecord.Model is null || staticRecord.Model.File is null) continue;
 
                 string modelFile = staticRecord.Model.File.ToLower();
+                string colorRemap = "";
+                if (staticRecord.Model.ColorRemappingIndex is not null)
+                {
+                    colorRemap = $"_{staticRecord.Model.ColorRemappingIndex}";
+                    if (Settings.devSettings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {staticRecord.FormKey} Static has a Color Remapping Index of {staticRecord.Model.ColorRemappingIndex}.");
+                }
 
                 // Split model file name path to see if it is from a dlc.
                 string baseFolder = modelFile.Split(Path.DirectorySeparatorChar)[0];
@@ -289,12 +374,7 @@ namespace FOLIP
                 string[] assignedlodMeshes = { "", "", "", "" };
                 bool hasLodMeshes = false;
 
-                string colorRemap = "";
-                if (staticRecord.Model.ColorRemappingIndex is not null)
-                {
-                    colorRemap = $"_{staticRecord.Model.ColorRemappingIndex}";
-                    if (Settings.devSettings.verboseConsoleLog) Console.WriteLine($"Note for LOD author: {staticRecord.FormKey} Static has a Color Remapping Index of {staticRecord.Model.ColorRemappingIndex}.");
-                }
+                
 
                 // Get file names of possible lod meshes based off the filename (e.g. meshes\somefolder\somemodel.nif would match to meshes\lod\somefolder\somemodel_lod_0.nif).
                 switch (baseFolder)
@@ -441,12 +521,7 @@ namespace FOLIP
                 {
                     if (assignedlodMeshes[i].Length > 0)
                     {
-                        var item = new DistantLod()
-                        {
-                            Mesh = assignedlodMeshes[i],
-                            Data = new byte[260 - assignedlodMeshes[i].Length - 1],
-                        };
-                        myFavoriteStatic.DistantLods.Add(item);
+                        myFavoriteStatic.DistantLods.Add(new DistantLod() { Mesh = assignedlodMeshes[i] });
                     }
                 }
             }
@@ -554,12 +629,7 @@ namespace FOLIP
                     {
                         if (assignedlodMeshes[i].Length > 0)
                         {
-                            var item = new DistantLod()
-                            {
-                                Mesh = assignedlodMeshes[i],
-                                Data = new byte[260 - assignedlodMeshes[i].Length - 1],
-                            };
-                            fakeStatic.DistantLods.Add(item);
+                            fakeStatic.DistantLods.Add(new DistantLod() { Mesh = assignedlodMeshes[i] });
                         }
                     }
                     movableStaticLod.Add(moveableStaticRecord.FormKey, fakeStatic.FormKey);
@@ -666,12 +736,7 @@ namespace FOLIP
                     {
                         if (assignedlodMeshes[i].Length > 0)
                         {
-                            var item = new DistantLod()
-                            {
-                                Mesh = assignedlodMeshes[i],
-                                Data = new byte[260 - assignedlodMeshes[i].Length - 1],
-                            };
-                            fakeStatic.DistantLods.Add(item);
+                            fakeStatic.DistantLods.Add(new DistantLod() { Mesh = assignedlodMeshes[i] });
                         }
                     }
                     movableStaticLod.Add(furnitureRecord.FormKey, fakeStatic.FormKey);
